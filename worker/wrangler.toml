@@ -1,0 +1,11 @@
+name = "ttt-calculator-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ttt-calculator"
+database_id = "YOUR_DATABASE_ID"  # `wrangler d1 create ttt-calculator` で取得した ID に置き換える
+
+[dev]
+port = 8787
