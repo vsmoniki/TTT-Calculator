@@ -1,0 +1,35 @@
+name: Sync Zwift Data to D1
+
+# GitHub Actions の Actions タブから手動実行できます
+# またはスケジュール実行も可（毎週月曜 0時 JST = 日曜 15:00 UTC）
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 15 * * 0'  # 毎週日曜 15:00 UTC (月曜 0:00 JST)
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install script dependencies
+        working-directory: scripts
+        run: npm install
+
+      - name: Generate SQL from zwift-data
+        run: node scripts/sync-zwift-data.mjs
+
+      - name: Apply to D1 (remote)
+        working-directory: worker
+        run: |
+          npm install
+          npx wrangler d1 execute ttt-db --remote --file=../scripts/sync-output.sql
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "544353ab14526bdb41720c2bfe98063d"
