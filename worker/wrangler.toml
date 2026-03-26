@@ -1,7 +1,6 @@
 name = "ttt-calculator"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
-compatibility_flags = []
 account_id = "544353ab14526bdb41720c2bfe98063d"
 
 [[d1_databases]]
