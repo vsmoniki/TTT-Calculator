@@ -4,4 +4,4 @@
 // 本番デプロイ後: wrangler deploy で取得した URL に変更
 // =============================================
 
-export const API_BASE = 'http://localhost:8787';
+export const API_BASE = 'https://ttt-calculator.aisaka-kugimiya.workers.dev';
