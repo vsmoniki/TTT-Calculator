@@ -8,5 +8,6 @@ binding = "DB"
 database_name = "ttt-db"
 database_id = "2da84074-4076-4e93-bdb1-40212beddf7e"
 
+# updated
 [dev]
 port = 8787
