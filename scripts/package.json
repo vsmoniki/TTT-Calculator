@@ -1,0 +1,12 @@
+{
+  "name": "ttt-calculator-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node sync-zwift-data.mjs"
+  },
+  "dependencies": {
+    "zwift-data": "^1.48.6"
+  }
+}
