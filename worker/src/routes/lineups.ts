@@ -15,6 +15,24 @@ import { ok, badRequest, notFound, conflict, serverError } from '../response';
 
 const MAX_LINEUP_MEMBERS = 8;
 
+/** ラインナップ一覧 */
+export async function listLineups(_request: Request, env: Env): Promise<Response> {
+  try {
+    const { results } = await env.DB.prepare(`
+      SELECT l.id, l.name, l.team_id, t.name AS team_name,
+             l.route_id, r.name AS route_name, l.target_speed_kph, l.notes, l.created_at
+      FROM lineups l
+      JOIN teams t ON t.id = l.team_id
+      LEFT JOIN routes r ON r.id = l.route_id
+      ORDER BY l.id DESC
+    `).all();
+    return ok(results);
+  } catch (e) {
+    console.error(e);
+    return serverError();
+  }
+}
+
 /** ラインナップ作成 */
 export async function createLineup(request: Request, env: Env): Promise<Response> {
   let body: CreateLineupBody;

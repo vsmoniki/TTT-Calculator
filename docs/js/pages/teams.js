@@ -1,26 +1,40 @@
 // =============================================
 // チーム管理画面
-// - チーム作成 / ライダー作成
-// - チームへのメンバー追加・削除
-// - 8人制約をUIで表示
+// - ライダー一覧・登録・削除
+// - チーム作成
+// - チームへのメンバー追加（ドロップダウン）・削除
 // =============================================
-import { fetchTeams, createTeam, createRider, addTeamMember, removeTeamMember } from '../api.js';
+import {
+  fetchTeams, createTeam, addTeamMember, removeTeamMember,
+  fetchRiders, createRider, deleteRider,
+} from '../api.js';
 
 const MAX_MEMBERS = 8;
 
+// ページ全体のコンテナ参照（再描画用）
+let _container = null;
+// 全ライダーキャッシュ
+let _allRiders = [];
+// 全チームキャッシュ
+let _allTeams  = [];
+
 export async function renderTeams(container) {
-  await refreshTeams(container);
+  _container = container;
+  await refresh();
 }
 
-async function refreshTeams(container) {
-  const teams = await fetchTeams();
+async function refresh() {
+  [_allRiders, _allTeams] = await Promise.all([fetchRiders(), fetchTeams()]);
+  render();
+}
 
-  container.innerHTML = `
+function render() {
+  _container.innerHTML = `
     <div class="page-header">
       <h2 class="page-title">チーム管理</h2>
     </div>
 
-    <!-- ライダー作成 -->
+    <!-- ライダー登録 -->
     <div class="section">
       <div class="section-title">新規ライダー登録</div>
       <div class="card">
@@ -53,6 +67,33 @@ async function refreshTeams(container) {
       </div>
     </div>
 
+    <!-- ライダー一覧 -->
+    <div class="section">
+      <div class="section-title">ライダー一覧 <span class="badge badge-info">${_allRiders.length}人</span></div>
+      ${_allRiders.length === 0
+        ? '<p class="text-muted">ライダーがいません。上のフォームから登録してください。</p>'
+        : `<div class="table-wrap"><table>
+            <thead><tr>
+              <th>名前</th><th>体重</th><th>FTP</th><th>身長</th><th>メモ</th><th></th>
+            </tr></thead>
+            <tbody>
+              ${_allRiders.map((r) => `
+                <tr>
+                  <td><strong>${esc(r.name)}</strong></td>
+                  <td>${r.weight_kg} kg</td>
+                  <td>${r.ftp_w} W</td>
+                  <td>${r.height_cm ? r.height_cm + ' cm' : '<span class="text-muted">—</span>'}</td>
+                  <td class="text-sm text-muted">${r.notes ? esc(r.notes) : ''}</td>
+                  <td>
+                    <button class="btn btn-danger btn-sm" onclick="deleteRiderById(${r.id}, '${esc(r.name)}')">削除</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table></div>`
+      }
+    </div>
+
     <!-- チーム作成 -->
     <div class="section">
       <div class="section-title">新規チーム作成</div>
@@ -75,13 +116,17 @@ async function refreshTeams(container) {
     <!-- チーム一覧 -->
     <div class="section">
       <div class="section-title">チーム一覧</div>
-      ${teams.length === 0
+      ${_allTeams.length === 0
         ? '<p class="text-muted">チームがありません。上のフォームから作成してください。</p>'
-        : teams.map((t) => renderTeamCard(t)).join('')
+        : _allTeams.map((t) => renderTeamCard(t)).join('')
       }
     </div>
   `;
 
+  bindEvents();
+}
+
+function bindEvents() {
   // ライダー登録
   document.getElementById('rider-submit').addEventListener('click', async () => {
     const errEl = document.getElementById('rider-error');
@@ -95,11 +140,10 @@ async function refreshTeams(container) {
     if (!name || isNaN(weight) || isNaN(ftp)) {
       errEl.textContent = '名前・体重・FTPは必須です。'; errEl.style.display = 'block'; return;
     }
-
     try {
       await createRider({ name, weight_kg: weight, ftp_w: ftp, height_cm: height ? parseInt(height) : undefined, notes: notes || undefined });
       ['rider-name','rider-weight','rider-ftp','rider-height','rider-notes'].forEach(id => document.getElementById(id).value = '');
-      await refreshTeams(container);
+      await refresh();
     } catch (e) {
       errEl.textContent = e.message ?? 'エラーが発生しました'; errEl.style.display = 'block';
     }
@@ -111,41 +155,49 @@ async function refreshTeams(container) {
     errEl.style.display = 'none';
     const name  = document.getElementById('team-name').value.trim();
     const notes = document.getElementById('team-notes').value.trim();
-
     if (!name) { errEl.textContent = 'チーム名は必須です。'; errEl.style.display = 'block'; return; }
-
     try {
       await createTeam({ name, notes: notes || undefined });
       document.getElementById('team-name').value = '';
       document.getElementById('team-notes').value = '';
-      await refreshTeams(container);
+      await refresh();
     } catch (e) {
       errEl.textContent = e.message ?? 'エラーが発生しました'; errEl.style.display = 'block';
     }
   });
 
-  // メンバー追加・削除ボタン（グローバル公開）
+  // ライダー削除
+  window.deleteRiderById = async (riderId, name) => {
+    if (!confirm(`「${name}」を削除しますか？チームやラインナップからも除外されます。`)) return;
+    try {
+      await deleteRider(riderId);
+      await refresh();
+    } catch (e) {
+      alert(e.message ?? 'エラーが発生しました');
+    }
+  };
+
+  // メンバー追加
   window.addMemberToTeam = async (teamId) => {
     const sel = document.getElementById(`add-member-sel-${teamId}`);
     const riderId = parseInt(sel.value);
     if (!riderId) return;
-
     const errEl = document.getElementById(`team-err-${teamId}`);
     errEl.style.display = 'none';
-
     try {
       await addTeamMember(teamId, { rider_id: riderId });
-      await refreshTeams(container);
+      await refresh();
     } catch (e) {
       errEl.textContent = e.message ?? 'エラーが発生しました'; errEl.style.display = 'block';
     }
   };
 
+  // メンバー削除
   window.removeMemberFromTeam = async (teamId, riderId) => {
     if (!confirm('このメンバーをチームから削除しますか?')) return;
     try {
       await removeTeamMember(teamId, riderId);
-      await refreshTeams(container);
+      await refresh();
     } catch (e) {
       alert(e.message ?? 'エラーが発生しました');
     }
@@ -159,9 +211,10 @@ function renderTeamCard(team) {
     ? `<span class="badge badge-danger">${memberCount}/${MAX_MEMBERS}</span>`
     : `<span class="badge badge-info">${memberCount}/${MAX_MEMBERS}</span>`;
 
-  // メンバーではないライダーの選択肢（API上は全riders必要だが、MVPではteam.members以外を選択肢に）
-  // ここでは簡略化のため、rider_id を手入力 → 選択UIにはteam.members外ライダーが必要なので
-  // rider_id直接入力 → 拡張のためにselectはINPUT TYPE=NUMBERで代替
+  // チームにまだ所属していないライダーの選択肢
+  const memberRiderIds = new Set((team.members ?? []).map((m) => m.rider_id));
+  const availableRiders = _allRiders.filter((r) => !memberRiderIds.has(r.id));
+
   return `
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
@@ -181,14 +234,17 @@ function renderTeamCard(team) {
         `).join('') || '<li class="text-muted text-sm" style="display:block;padding:4px 0;">メンバーなし</li>'}
       </ul>
 
-      <!-- メンバー追加（rider_id 直接入力） -->
+      <!-- メンバー追加（ドロップダウン） -->
       ${!atLimit ? `
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input type="number" id="add-member-sel-${team.id}" placeholder="ライダーID" style="width:130px;background:var(--color-surface2);border:1px solid var(--color-border);border-radius:var(--radius);color:var(--color-text);padding:6px 8px;font-size:0.88rem;" />
+          <select id="add-member-sel-${team.id}" style="flex:1;min-width:180px;background:var(--color-surface2);border:1px solid var(--color-border);border-radius:var(--radius);color:var(--color-text);padding:6px 8px;font-size:0.88rem;">
+            <option value="">— ライダーを選択 —</option>
+            ${availableRiders.map((r) => `<option value="${r.id}">${esc(r.name)} (${r.weight_kg}kg / ${r.ftp_w}W)</option>`).join('')}
+          </select>
           <button class="btn btn-secondary btn-sm" onclick="addMemberToTeam(${team.id})">追加</button>
         </div>
+        ${availableRiders.length === 0 && _allRiders.length > 0 ? '<p class="text-muted text-sm mt-8">全ライダーがすでにメンバーです。</p>' : ''}
         <div id="team-err-${team.id}" class="error-msg mt-8" style="display:none"></div>
-        <p class="text-muted text-sm mt-8">※ ライダーID は「ライダー登録後に表示」またはAPIで確認してください。</p>
       ` : `<p class="badge badge-danger">メンバー上限（${MAX_MEMBERS}人）に達しています</p>`}
     </div>
   `;

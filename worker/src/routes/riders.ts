@@ -1,9 +1,35 @@
 // =============================================
-// POST /riders      — ライダー作成
-// PUT  /riders/:id  — ライダー更新
+// GET  /riders          — ライダー一覧
+// POST /riders          — ライダー作成
+// PUT  /riders/:id      — ライダー更新
+// DELETE /riders/:id    — ライダー削除
 // =============================================
 import { Env, CreateRiderBody, UpdateRiderBody } from '../types';
 import { ok, badRequest, notFound, serverError } from '../response';
+
+export async function listRiders(_request: Request, env: Env): Promise<Response> {
+  try {
+    const { results } = await env.DB.prepare(
+      'SELECT id, name, weight_kg, height_cm, ftp_w, preferred_pull_sec, notes FROM riders ORDER BY name'
+    ).all();
+    return ok(results);
+  } catch (e) {
+    console.error(e);
+    return serverError();
+  }
+}
+
+export async function deleteRider(_request: Request, env: Env, id: number): Promise<Response> {
+  const existing = await env.DB.prepare('SELECT id FROM riders WHERE id = ?').bind(id).first();
+  if (!existing) return notFound('Rider');
+  try {
+    await env.DB.prepare('DELETE FROM riders WHERE id = ?').bind(id).run();
+    return ok({ message: 'Rider deleted' });
+  } catch (e) {
+    console.error(e);
+    return serverError();
+  }
+}
 
 export async function createRider(request: Request, env: Env): Promise<Response> {
   let body: CreateRiderBody;

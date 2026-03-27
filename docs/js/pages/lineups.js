@@ -1,31 +1,28 @@
 // =============================================
 // ラインナップ作成・管理画面
-// - チーム選択 → ラインナップ作成
-// - メンバー追加（rider / frame / wheel / order_index 指定）
-// - lineup詳細確認
+// - ラインナップ一覧 / 作成
+// - メンバー追加（チームメンバーからドロップダウン選択）
+// - メンバー編集（機材・順番）
 // =============================================
 import {
-  fetchTeams, fetchRoutes, fetchFrames, fetchWheels,
+  fetchTeams, fetchRoutes, fetchFrames, fetchWheels, fetchLineups,
   createLineup, fetchLineup, updateLineup,
   addLineupMember, updateLineupMember, removeLineupMember,
 } from '../api.js';
 
 let state = {
-  teams: [], routes: [], frames: [], wheels: [],
-  selectedTeam: null,
+  teams: [], routes: [], frames: [], wheels: [], lineups: [],
   lineupId: null,
   lineup: null,
 };
 
 export async function renderLineups(container) {
-  // マスターデータ並行取得
-  const [teams, routes, frames, wheels] = await Promise.all([
-    fetchTeams(), fetchRoutes(), fetchFrames(), fetchWheels(),
+  const [teams, routes, frames, wheels, lineups] = await Promise.all([
+    fetchTeams(), fetchRoutes(), fetchFrames(), fetchWheels(), fetchLineups(),
   ]);
-  state = { ...state, teams, routes, frames, wheels };
+  state = { ...state, teams, routes, frames, wheels, lineups };
 
-  // lineupId がURLのハッシュに含まれる場合は詳細表示
-  const hash = location.hash; // #/lineups/3
+  const hash = location.hash;
   const match = hash.match(/^#\/lineups\/(\d+)$/);
   if (match) {
     state.lineupId = parseInt(match[1]);
@@ -40,10 +37,12 @@ export async function renderLineups(container) {
 function renderLineupForm(container) {
   container.innerHTML = `
     <div class="page-header">
-      <h2 class="page-title">ラインナップ作成</h2>
+      <h2 class="page-title">ラインナップ</h2>
     </div>
 
+    <!-- 新規作成フォーム -->
     <div class="section">
+      <div class="section-title">新規作成</div>
       <div class="card">
         <div class="form-row">
           <div class="form-group">
@@ -80,15 +79,28 @@ function renderLineupForm(container) {
       </div>
     </div>
 
-    <!-- 既存ラインナップへの直接アクセス -->
+    <!-- 既存ラインナップ一覧 -->
     <div class="section">
-      <div class="section-title">既存ラインナップを開く</div>
-      <div class="card">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input type="number" id="lu-open-id" placeholder="ラインナップID" style="width:160px;background:var(--color-surface2);border:1px solid var(--color-border);border-radius:var(--radius);color:var(--color-text);padding:8px 10px;font-size:0.9rem;" />
-          <button class="btn btn-secondary" id="lu-open">開く</button>
-        </div>
-      </div>
+      <div class="section-title">既存のラインナップ <span class="badge badge-info">${state.lineups.length}件</span></div>
+      ${state.lineups.length === 0
+        ? '<p class="text-muted">ラインナップがありません。上のフォームから作成してください。</p>'
+        : `<div class="table-wrap"><table>
+            <thead><tr>
+              <th>名前</th><th>チーム</th><th>コース</th><th>目標速度</th><th></th>
+            </tr></thead>
+            <tbody>
+              ${state.lineups.map((lu) => `
+                <tr style="cursor:pointer;" onclick="location.hash='#/lineups/${lu.id}'">
+                  <td><strong>${esc(lu.name)}</strong></td>
+                  <td>${esc(lu.team_name)}</td>
+                  <td class="text-sm">${lu.route_name ? esc(lu.route_name) : '<span class="text-muted">未設定</span>'}</td>
+                  <td class="text-sm">${lu.target_speed_kph ? lu.target_speed_kph + ' kph' : '<span class="text-muted">未設定</span>'}</td>
+                  <td><button class="btn btn-secondary btn-sm">開く →</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table></div>`
+      }
     </div>
   `;
 
@@ -120,18 +132,13 @@ function renderLineupForm(container) {
       errEl.textContent = e.message ?? 'エラーが発生しました'; errEl.style.display = 'block';
     }
   });
-
-  document.getElementById('lu-open').addEventListener('click', () => {
-    const id = document.getElementById('lu-open-id').value;
-    if (id) location.hash = `#/lineups/${id}`;
-  });
 }
 
 // ---- ラインナップ詳細 ----
 async function renderLineupDetail(container) {
   try {
     state.lineup = await fetchLineup(state.lineupId);
-  } catch (e) {
+  } catch {
     container.innerHTML = `<div class="error-msg">ラインナップが見つかりません (ID: ${state.lineupId})</div>
       <button class="btn btn-secondary mt-12" onclick="location.hash='#/lineups'">一覧に戻る</button>`;
     return;
@@ -139,7 +146,16 @@ async function renderLineupDetail(container) {
 
   const lu = state.lineup;
   const route  = state.routes.find((r) => r.id === lu.route_id);
+  const team   = state.teams.find((t) => t.id === lu.team_id);
   const memberCount = lu.members?.length ?? 0;
+
+  // チームメンバーのうち、ラインナップにまだいないライダー
+  const lineupRiderIds = new Set((lu.members ?? []).map((m) => m.rider_id));
+  const teamMembers = (team?.members ?? []).filter((m) => !lineupRiderIds.has(m.rider_id));
+
+  // 使用済み order_index
+  const usedOrders = new Set((lu.members ?? []).map((m) => m.order_index));
+  const nextOrder  = [1,2,3,4,5,6,7,8].find((n) => !usedOrders.has(n)) ?? 1;
 
   container.innerHTML = `
     <div class="page-header">
@@ -150,15 +166,15 @@ async function renderLineupDetail(container) {
     <!-- ラインナップ情報 -->
     <div class="card mb-8">
       <div class="card-meta">
-        チームID: ${lu.team_id} &nbsp;|&nbsp;
-        コース: ${route ? esc(route.name) : lu.route_id ?? '未設定'} &nbsp;|&nbsp;
-        目標速度: ${lu.target_speed_kph ? lu.target_speed_kph + ' kph' : '未設定'} &nbsp;|&nbsp;
+        チーム: <strong>${team ? esc(team.name) : lu.team_id}</strong> &nbsp;|&nbsp;
+        コース: ${route ? esc(route.name) : '<span class="text-muted">未設定</span>'} &nbsp;|&nbsp;
+        目標速度: ${lu.target_speed_kph ? lu.target_speed_kph + ' kph' : '<span class="text-muted">未設定</span>'} &nbsp;|&nbsp;
         メンバー: <span class="${memberCount >= 8 ? 'badge badge-danger' : 'badge badge-info'}">${memberCount}/8</span>
       </div>
       ${lu.notes ? `<p class="text-muted text-sm mt-8">${esc(lu.notes)}</p>` : ''}
     </div>
 
-    <!-- 目標速度の更新 -->
+    <!-- 設定更新 -->
     <div class="section">
       <div class="section-title">設定更新</div>
       <div class="card">
@@ -187,12 +203,7 @@ async function renderLineupDetail(container) {
         <table>
           <thead>
             <tr>
-              <th>順番</th>
-              <th>ライダー</th>
-              <th>体重 / FTP</th>
-              <th>フレーム</th>
-              <th>ホイール</th>
-              <th></th>
+              <th>順番</th><th>ライダー</th><th>体重 / FTP</th><th>フレーム</th><th>ホイール</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -221,12 +232,18 @@ async function renderLineupDetail(container) {
       <div class="card">
         <div class="form-row">
           <div class="form-group">
-            <label>ライダーID *</label>
-            <input type="number" id="add-rider-id" placeholder="例: 1" />
+            <label>ライダー *</label>
+            <select id="add-rider-id">
+              <option value="">— 選択 —</option>
+              ${teamMembers.map((m) => `<option value="${m.rider_id}">${esc(m.name)} (${m.weight_kg}kg / ${m.ftp_w}W)</option>`).join('')}
+            </select>
+            ${teamMembers.length === 0 ? '<p class="text-muted text-sm mt-4">チームの全メンバーがすでに追加されています。</p>' : ''}
           </div>
           <div class="form-group">
             <label>順番 (1〜8) *</label>
-            <input type="number" id="add-order" min="1" max="8" placeholder="例: 1" />
+            <select id="add-order">
+              ${[1,2,3,4,5,6,7,8].filter((n) => !usedOrders.has(n)).map((n) => `<option value="${n}" ${n === nextOrder ? 'selected' : ''}>${n}</option>`).join('')}
+            </select>
           </div>
         </div>
         <div class="form-row">
@@ -249,7 +266,7 @@ async function renderLineupDetail(container) {
         <button class="btn btn-primary" id="add-member-submit">メンバーを追加</button>
       </div>
     </div>
-    ` : `<div class="badge badge-danger">メンバー上限（8人）に達しています</div>`}
+    ` : `<div class="badge badge-danger mb-8">メンバー上限（8人）に達しています</div>`}
 
     <!-- シミュレーションへ -->
     <div class="mt-16">
@@ -259,7 +276,7 @@ async function renderLineupDetail(container) {
     <div id="edit-modal"></div>
   `;
 
-  // ラインナップ設定更新
+  // 設定更新
   document.getElementById('lu-upd-submit').addEventListener('click', async () => {
     const errEl = document.getElementById('lu-upd-error');
     errEl.style.display = 'none';
@@ -287,9 +304,8 @@ async function renderLineupDetail(container) {
       const wheelId    = document.getElementById('add-wheel').value;
 
       if (!riderId || !orderIndex) {
-        errEl.textContent = 'ライダーIDと順番は必須です。'; errEl.style.display = 'block'; return;
+        errEl.textContent = 'ライダーと順番は必須です。'; errEl.style.display = 'block'; return;
       }
-
       try {
         await addLineupMember(state.lineupId, {
           rider_id: riderId,
@@ -315,16 +331,19 @@ async function renderLineupDetail(container) {
     }
   };
 
-  // メンバー編集（機材変更・順番変更）
+  // メンバー編集
   window.editMember = (memberId) => {
     const member = lu.members.find((m) => m.id === memberId);
     if (!member) return;
-    openEditModal(container, member);
+    openEditModal(container, member, usedOrders);
   };
 }
 
-function openEditModal(container, member) {
+function openEditModal(container, member, usedOrders) {
   const modal = document.getElementById('edit-modal');
+  // 編集中のメンバー自身の order は選択肢に含める
+  const availableOrders = [1,2,3,4,5,6,7,8].filter((n) => !usedOrders.has(n) || n === member.order_index);
+
   modal.innerHTML = `
     <div class="modal-overlay" id="edit-overlay">
       <div class="modal">
@@ -332,7 +351,9 @@ function openEditModal(container, member) {
         <div class="modal-title">${esc(member.rider_name)} の設定変更</div>
         <div class="form-group">
           <label>順番 (1〜8)</label>
-          <input type="number" id="edit-order" min="1" max="8" value="${member.order_index}" />
+          <select id="edit-order">
+            ${availableOrders.map((n) => `<option value="${n}" ${n === member.order_index ? 'selected' : ''}>${n}</option>`).join('')}
+          </select>
         </div>
         <div class="form-group">
           <label>フレーム</label>

@@ -6,10 +6,10 @@ import { preflight, notFound } from './response';
 import { listRoutes, getRoute } from './routes/routes';
 import { listFrames } from './routes/frames';
 import { listWheels } from './routes/wheels';
-import { createRider, updateRider } from './routes/riders';
+import { listRiders, createRider, updateRider, deleteRider } from './routes/riders';
 import { listTeams, getTeam, createTeam, addTeamMember, removeTeamMember } from './routes/teams';
 import {
-  createLineup, getLineup, updateLineup,
+  listLineups, createLineup, getLineup, updateLineup,
   addLineupMember, updateLineupMember, removeLineupMember,
 } from './routes/lineups';
 import { simulate } from './routes/simulate';
@@ -44,8 +44,10 @@ export default {
 
     // ---- /riders ----
     if (segments[0] === 'riders') {
+      if (segments.length === 1 && method === 'GET') return listRiders(request, env);
       if (segments.length === 1 && method === 'POST') return createRider(request, env);
       if (segments.length === 2 && method === 'PUT') return updateRider(request, env, Number(segments[1]));
+      if (segments.length === 2 && method === 'DELETE') return deleteRider(request, env, Number(segments[1]));
     }
 
     // ---- /teams ----
@@ -68,6 +70,8 @@ export default {
 
     // ---- /lineups ----
     if (segments[0] === 'lineups') {
+      // GET /lineups
+      if (segments.length === 1 && method === 'GET') return listLineups(request, env);
       // POST /lineups
       if (segments.length === 1 && method === 'POST') return createLineup(request, env);
       // GET /lineups/:id
