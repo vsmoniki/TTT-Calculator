@@ -14,7 +14,7 @@ let state = {
   teams: [], routes: [], frames: [], wheels: [], lineups: [],
   lineupId: null,
   lineup: null,
-  saving: new Set(), // 保存中の memberId
+  saving: new Set(),
 };
 
 export async function renderLineups(container) {
@@ -34,9 +34,6 @@ export async function renderLineups(container) {
   renderList(container);
 }
 
-// ============================================================
-// ラインナップ一覧 + 新規作成フォーム
-// ============================================================
 function renderList(container) {
   container.innerHTML = `
     <div class="page-header">
@@ -126,9 +123,6 @@ function renderList(container) {
   });
 }
 
-// ============================================================
-// ラインナップ詳細
-// ============================================================
 async function renderDetail(container) {
   try {
     state.lineup = await fetchLineup(state.lineupId);
@@ -141,12 +135,8 @@ async function renderDetail(container) {
 
   const lu   = state.lineup;
   const team  = state.teams.find((t) => t.id === lu.team_id);
-  const route = state.routes.find((r) => r.id === lu.route_id);
   const memberCount = lu.members?.length ?? 0;
-
-  // チームメンバー一覧（全員）
   const teamRiders = team?.members ?? [];
-  // ラインナップ参加中の rider_id セット
   const lineupRiderIds = new Set((lu.members ?? []).map((m) => m.rider_id));
 
   container.innerHTML = `
@@ -155,7 +145,6 @@ async function renderDetail(container) {
       <button class="btn btn-secondary btn-sm" onclick="location.hash='#/lineups'">← 一覧へ</button>
     </div>
 
-    <!-- メタ情報 + 設定 -->
     <div class="card mb-8">
       <div class="form-row">
         <div class="form-group">
@@ -180,14 +169,13 @@ async function renderDetail(container) {
       <div id="lu-upd-error" class="error-msg mt-8" style="display:none"></div>
     </div>
 
-    <!-- メンバー選択（チームロスター） -->
     <div class="section">
       <div class="section-title">メンバー選択</div>
       <div class="card">
         ${teamRiders.length === 0
           ? '<p class="text-muted text-sm">チームにメンバーがいません。チーム管理画面でメンバーを追加してください。</p>'
           : `<p class="text-muted text-sm mb-8">クリックしてラインナップに追加・削除できます</p>
-             <div style="display:flex;flex-wrap:wrap;gap:8px;" id="roster-chips">
+             <div style="display:flex;flex-wrap:wrap;gap:8px;">
                ${teamRiders.map((r) => {
                  const inLineup = lineupRiderIds.has(r.rider_id);
                  const luMember = lu.members?.find((m) => m.rider_id === r.rider_id);
@@ -209,7 +197,6 @@ async function renderDetail(container) {
       </div>
     </div>
 
-    <!-- メンバーカード（機材編集） -->
     <div class="section">
       <div class="section-title">ラインナップ構成</div>
       <div id="member-cards">
@@ -218,7 +205,6 @@ async function renderDetail(container) {
       </div>
     </div>
 
-    <!-- シミュレーションへ -->
     ${memberCount > 0 ? `
     <div class="mt-16">
       <button class="btn btn-primary" onclick="location.hash='#/simulate'">シミュレーション画面へ →</button>
@@ -229,7 +215,6 @@ async function renderDetail(container) {
 }
 
 function renderMemberCard(m, idx, total) {
-  const isSaving = state.saving.has(m.id);
   return `
     <div class="member-card" id="mcard-${m.id}">
       <div class="member-card-header">
@@ -241,7 +226,6 @@ function renderMemberCard(m, idx, total) {
           </div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;">
-          ${isSaving ? '<span class="text-muted text-sm">保存中…</span>' : ''}
           <button class="btn btn-icon" onclick="moveMember(${m.id}, -1)" ${idx === 0 ? 'disabled' : ''} title="上へ">↑</button>
           <button class="btn btn-icon" onclick="moveMember(${m.id}, 1)" ${idx === total - 1 ? 'disabled' : ''} title="下へ">↓</button>
           <button class="btn btn-danger btn-sm" onclick="removeMember(${m.id})">外す</button>
@@ -269,7 +253,6 @@ function renderMemberCard(m, idx, total) {
 }
 
 function bindDetailEvents(container) {
-  // 設定保存
   document.getElementById('lu-upd-submit').addEventListener('click', async () => {
     const errEl = document.getElementById('lu-upd-error');
     errEl.style.display = 'none';
@@ -280,24 +263,20 @@ function bindDetailEvents(container) {
         route_id:         routeId ? parseInt(routeId) : undefined,
         target_speed_kph: speed   ? parseFloat(speed)  : undefined,
       });
-      state.lineup = await fetchLineup(state.lineupId);
       await renderDetail(container);
     } catch (e) {
       errEl.textContent = e.message ?? 'エラーが発生しました'; errEl.style.display = 'block';
     }
   });
 
-  // ロスターチップ クリック（追加・削除）
   window.toggleRosterMember = async (riderId, existingMemberId) => {
     if (existingMemberId) {
-      // 削除
       if (!confirm('このメンバーをラインナップから外しますか？')) return;
       try {
         await removeLineupMember(state.lineupId, existingMemberId);
         await renderDetail(container);
       } catch (e) { alert(e.message ?? 'エラーが発生しました'); }
     } else {
-      // 追加（次の空き順番を自動割り当て）
       const usedOrders = new Set((state.lineup.members ?? []).map((m) => m.order_index));
       const nextOrder  = [1,2,3,4,5,6,7,8].find((n) => !usedOrders.has(n)) ?? 1;
       try {
@@ -307,18 +286,15 @@ function bindDetailEvents(container) {
     }
   };
 
-  // 機材自動保存
   window.saveGear = async (memberId) => {
     const frameVal = document.getElementById(`frame-sel-${memberId}`)?.value;
     const wheelVal = document.getElementById(`wheel-sel-${memberId}`)?.value;
     const errEl = document.getElementById(`gear-err-${memberId}`);
     if (errEl) errEl.style.display = 'none';
 
-    state.saving.add(memberId);
-    // 保存中インジケータ
     const header = document.querySelector(`#mcard-${memberId} .member-card-header`);
-    const indicator = header?.querySelector('.saving-indicator');
-    if (!indicator && header) {
+    const existing = header?.querySelector('.saving-indicator');
+    if (!existing && header) {
       const span = document.createElement('span');
       span.className = 'text-muted text-sm saving-indicator';
       span.textContent = '保存中…';
@@ -330,28 +306,21 @@ function bindDetailEvents(container) {
         frame_id: frameVal ? parseInt(frameVal) : null,
         wheel_id: wheelVal ? parseInt(wheelVal) : null,
       });
-      // 保存完了表示
-      if (header) {
-        const ind = header.querySelector('.saving-indicator');
-        if (ind) { ind.textContent = '✓ 保存'; setTimeout(() => ind.remove(), 1500); }
-      }
+      const ind = header?.querySelector('.saving-indicator');
+      if (ind) { ind.textContent = '✓ 保存'; setTimeout(() => ind.remove(), 1500); }
     } catch (e) {
       if (errEl) { errEl.textContent = e.message ?? '保存エラー'; errEl.style.display = 'block'; }
     }
-    state.saving.delete(memberId);
   };
 
-  // 順番の並び替え（↑↓）
   window.moveMember = async (memberId, direction) => {
     const members = [...(state.lineup.members ?? [])].sort((a, b) => a.order_index - b.order_index);
     const idx = members.findIndex((m) => m.id === memberId);
     const swapIdx = idx + direction;
     if (swapIdx < 0 || swapIdx >= members.length) return;
-
     const a = members[idx];
     const b = members[swapIdx];
     try {
-      // 一時的に別の値（9）にしてから入れ替え（UNIQUE制約対策）
       await updateLineupMember(state.lineupId, a.id, { order_index: 9 });
       await updateLineupMember(state.lineupId, b.id, { order_index: a.order_index });
       await updateLineupMember(state.lineupId, a.id, { order_index: b.order_index });
@@ -359,7 +328,6 @@ function bindDetailEvents(container) {
     } catch (e) { alert(e.message ?? 'エラーが発生しました'); }
   };
 
-  // メンバー削除
   window.removeMember = async (memberId) => {
     if (!confirm('このメンバーをラインナップから外しますか?')) return;
     try {
