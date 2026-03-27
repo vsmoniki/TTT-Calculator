@@ -36,8 +36,10 @@ export const fetchFrames    = ()   => get('/frames');
 export const fetchWheels    = ()   => get('/wheels');
 
 // ---- Riders ----
-export const createRider    = (body) => post('/riders', body);
-export const updateRider    = (id, body) => put(`/riders/${id}`, body);
+export const fetchRiders    = ()          => get('/riders');
+export const createRider    = (body)      => post('/riders', body);
+export const updateRider    = (id, body)  => put(`/riders/${id}`, body);
+export const deleteRider    = (id)        => del(`/riders/${id}`);
 
 // ---- Teams ----
 export const fetchTeams     = ()          => get('/teams');
@@ -47,6 +49,7 @@ export const addTeamMember  = (teamId, body) => post(`/teams/${teamId}/members`,
 export const removeTeamMember = (teamId, riderId) => del(`/teams/${teamId}/members/${riderId}`);
 
 // ---- Lineups ----
+export const fetchLineups   = ()          => get('/lineups');
 export const createLineup   = (body)      => post('/lineups', body);
 export const fetchLineup    = (id)        => get(`/lineups/${id}`);
 export const updateLineup   = (id, body)  => put(`/lineups/${id}`, body);
