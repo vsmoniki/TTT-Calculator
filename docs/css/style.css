@@ -298,16 +298,6 @@ tbody tr:hover { background: var(--color-surface2); }
   margin-bottom: 6px;
   font-size: 0.88rem;
 }
-.member-list .order-badge {
-  background: var(--color-primary);
-  color: #000;
-  font-weight: 700;
-  width: 24px; height: 24px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.78rem;
-  flex-shrink: 0;
-}
 .member-list .member-name { flex: 1; font-weight: 500; }
 .member-list .member-meta { color: var(--color-text-muted); font-size: 0.78rem; }
 
@@ -431,7 +421,7 @@ tbody tr:hover { background: var(--color-surface2); }
 .btn-icon:hover:not(:disabled) { border-color: var(--color-primary); }
 .btn-icon:disabled { opacity: 0.3; cursor: not-allowed; }
 
-/* ---- order-badge（カード内） ---- */
+/* ---- order-badge ---- */
 .order-badge {
   width: 32px;
   height: 32px;
