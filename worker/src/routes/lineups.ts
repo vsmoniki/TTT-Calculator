@@ -1,4 +1,5 @@
 // =============================================
+// GET    /lineups                            — ラインナップ一覧
 // POST   /lineups                            — ラインナップ作成
 // GET    /lineups/:id                        — ラインナップ詳細
 // PUT    /lineups/:id                        — ラインナップ更新
@@ -157,11 +158,9 @@ export async function addLineupMember(request: Request, env: Env, lineupId: numb
   if (!rider_id || typeof rider_id !== 'number') return badRequest('rider_id is required');
   if (!order_index || order_index < 1 || order_index > 8) return badRequest('order_index must be between 1 and 8');
 
-  // ライダー存在確認
   const rider = await env.DB.prepare('SELECT id FROM riders WHERE id = ?').bind(rider_id).first();
   if (!rider) return notFound('Rider');
 
-  // 8人制約チェック
   const countRow = await env.DB.prepare(
     'SELECT COUNT(*) as cnt FROM lineup_members WHERE lineup_id = ?'
   ).bind(lineupId).first<{ cnt: number }>();
@@ -170,13 +169,11 @@ export async function addLineupMember(request: Request, env: Env, lineupId: numb
     return conflict('LINEUP_MEMBER_LIMIT_EXCEEDED', `lineup members cannot exceed ${MAX_LINEUP_MEMBERS}`);
   }
 
-  // rider重複チェック
   const dupRider = await env.DB.prepare(
     'SELECT id FROM lineup_members WHERE lineup_id = ? AND rider_id = ?'
   ).bind(lineupId, rider_id).first();
   if (dupRider) return conflict('LINEUP_RIDER_DUPLICATE', 'Rider is already in this lineup');
 
-  // order_index重複チェック
   const dupOrder = await env.DB.prepare(
     'SELECT id FROM lineup_members WHERE lineup_id = ? AND order_index = ?'
   ).bind(lineupId, order_index).first();
@@ -224,8 +221,6 @@ export async function updateLineupMember(
     if (body.order_index < 1 || body.order_index > 8) {
       return badRequest('order_index must be between 1 and 8');
     }
-
-    // order_index重複チェック（自分以外）
     const dup = await env.DB.prepare(
       'SELECT id FROM lineup_members WHERE lineup_id = ? AND order_index = ? AND id != ?'
     ).bind(lineupId, body.order_index, memberId).first();

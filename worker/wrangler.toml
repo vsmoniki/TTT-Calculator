@@ -1,7 +1,6 @@
 name = "ttt-calculator"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
-compatibility_flags = []
 account_id = "544353ab14526bdb41720c2bfe98063d"
 
 [[d1_databases]]
@@ -9,5 +8,6 @@ binding = "DB"
 database_name = "ttt-db"
 database_id = "2da84074-4076-4e93-bdb1-40212beddf7e"
 
+# updated
 [dev]
 port = 8787
