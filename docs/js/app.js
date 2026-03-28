@@ -2,6 +2,7 @@
 // アプリルーター
 // hashchange イベントでページを切り替える
 // =============================================
+import { renderMain }     from './pages/main.js';
 import { renderCourses }  from './pages/courses.js';
 import { renderGear }     from './pages/gear.js';
 import { renderTeams }    from './pages/teams.js';
@@ -9,6 +10,7 @@ import { renderLineups }  from './pages/lineups.js';
 import { renderSimulate } from './pages/simulate.js';
 
 const PAGES = {
+  main:     renderMain,
   courses:  renderCourses,
   gear:     renderGear,
   teams:    renderTeams,
@@ -20,7 +22,7 @@ const content = document.getElementById('content');
 
 function getPage() {
   // URL: index.html#/courses → 'courses'
-  const hash = location.hash.replace(/^#\//, '') || 'courses';
+  const hash = location.hash.replace(/^#\//, '') || 'main';
   return hash.split('/')[0];
 }
 
