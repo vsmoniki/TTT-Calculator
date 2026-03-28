@@ -10,7 +10,7 @@ import { listRiders, createRider, updateRider, deleteRider } from './routes/ride
 import { listTeams, getTeam, createTeam, addTeamMember, removeTeamMember } from './routes/teams';
 import {
   listLineups, createLineup, getLineup, updateLineup,
-  addLineupMember, updateLineupMember, removeLineupMember,
+  addLineupMember, updateLineupMember, removeLineupMember, swapLineupMemberOrder,
 } from './routes/lineups';
 import { simulate } from './routes/simulate';
 
@@ -85,6 +85,10 @@ export default {
       // PUT /lineups/:id/members/:memberId
       if (segments.length === 4 && segments[2] === 'members' && method === 'PUT') {
         return updateLineupMember(request, env, Number(segments[1]), Number(segments[3]));
+      }
+      // POST /lineups/:id/members/swap
+      if (segments.length === 4 && segments[2] === 'members' && segments[3] === 'swap' && method === 'POST') {
+        return swapLineupMemberOrder(request, env, Number(segments[1]));
       }
       // DELETE /lineups/:id/members/:memberId
       if (segments.length === 4 && segments[2] === 'members' && method === 'DELETE') {

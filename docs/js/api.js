@@ -56,6 +56,7 @@ export const updateLineup   = (id, body)  => put(`/lineups/${id}`, body);
 export const addLineupMember    = (lineupId, body) => post(`/lineups/${lineupId}/members`, body);
 export const updateLineupMember = (lineupId, memberId, body) => put(`/lineups/${lineupId}/members/${memberId}`, body);
 export const removeLineupMember = (lineupId, memberId) => del(`/lineups/${lineupId}/members/${memberId}`);
+export const swapLineupMembers  = (lineupId, aId, bId) => post(`/lineups/${lineupId}/members/swap`, { a_id: aId, b_id: bId });
 
 // ---- Simulate ----
 export const simulate = (body) => post('/simulate', body);

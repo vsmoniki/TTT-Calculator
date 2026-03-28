@@ -247,6 +247,50 @@ export async function updateLineupMember(
   }
 }
 
+/** ラインナップメンバーの順番を入れ替え（atomic swap） */
+export async function swapLineupMemberOrder(
+  request: Request, env: Env, lineupId: number
+): Promise<Response> {
+  let body: { a_id: number; b_id: number };
+  try {
+    body = await request.json<{ a_id: number; b_id: number }>();
+  } catch {
+    return badRequest('Invalid JSON body');
+  }
+
+  const { a_id, b_id } = body;
+  if (!a_id || !b_id || typeof a_id !== 'number' || typeof b_id !== 'number') {
+    return badRequest('a_id and b_id are required');
+  }
+
+  const [a, b] = await Promise.all([
+    env.DB.prepare(
+      'SELECT id, order_index FROM lineup_members WHERE id = ? AND lineup_id = ?'
+    ).bind(a_id, lineupId).first<{ id: number; order_index: number }>(),
+    env.DB.prepare(
+      'SELECT id, order_index FROM lineup_members WHERE id = ? AND lineup_id = ?'
+    ).bind(b_id, lineupId).first<{ id: number; order_index: number }>(),
+  ]);
+
+  if (!a || !b) return notFound('Lineup member');
+
+  try {
+    await env.DB.prepare(`
+      UPDATE lineup_members
+      SET order_index = CASE id
+        WHEN ? THEN ?
+        WHEN ? THEN ?
+      END
+      WHERE id IN (?, ?)
+    `).bind(a.id, b.order_index, b.id, a.order_index, a.id, b.id).run();
+
+    return ok({ message: 'Swapped' });
+  } catch (e) {
+    console.error(e);
+    return serverError();
+  }
+}
+
 /** ラインナップメンバー削除 */
 export async function removeLineupMember(
   _request: Request, env: Env, lineupId: number, memberId: number
