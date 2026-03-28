@@ -7,7 +7,7 @@
 import {
   fetchTeams, fetchRoutes, fetchFrames, fetchWheels, fetchLineups,
   createLineup, fetchLineup, updateLineup,
-  addLineupMember, updateLineupMember, removeLineupMember,
+  addLineupMember, updateLineupMember, removeLineupMember, swapLineupMembers,
 } from '../api.js';
 
 let state = {
@@ -321,9 +321,7 @@ function bindDetailEvents(container) {
     const a = members[idx];
     const b = members[swapIdx];
     try {
-      await updateLineupMember(state.lineupId, a.id, { order_index: 9 });
-      await updateLineupMember(state.lineupId, b.id, { order_index: a.order_index });
-      await updateLineupMember(state.lineupId, a.id, { order_index: b.order_index });
+      await swapLineupMembers(state.lineupId, a.id, b.id);
       await renderDetail(container);
     } catch (e) { alert(e.message ?? 'エラーが発生しました'); }
   };
