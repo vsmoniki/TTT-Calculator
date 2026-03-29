@@ -279,8 +279,9 @@ function bindDetailEvents(container) {
     } else {
       const usedOrders = new Set((state.lineup.members ?? []).map((m) => m.order_index));
       const nextOrder  = [1,2,3,4,5,6,7,8].find((n) => !usedOrders.has(n)) ?? 1;
+      const defaultFrameId = state.frames.find((f) => f.name === 'Cadex Tri')?.id ?? null;
       try {
-        await addLineupMember(state.lineupId, { rider_id: riderId, order_index: nextOrder });
+        await addLineupMember(state.lineupId, { rider_id: riderId, order_index: nextOrder, frame_id: defaultFrameId });
         await renderDetail(container);
       } catch (e) { alert(e.message ?? 'エラーが発生しました'); }
     }
