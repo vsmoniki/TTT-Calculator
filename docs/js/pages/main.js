@@ -14,14 +14,19 @@ const RHO       = 1.225;
 const CRR       = 0.004;
 const G         = 9.81;
 
+const DEFAULT_FRAME_NAME = 'CADEX tri';
+const DEFAULT_WHEEL_NAME = 'DT Swiss ARC 1100 DICUT 85/Disc';
+
 let state = {
-  riders:  [],
-  frames:  [],
-  wheels:  [],
-  members: [], // [{ rider, frameId, wheelId, order }]
-  speed:   45,
-  draft2:  0.80,
-  draftN:  0.75,
+  riders:         [],
+  frames:         [],
+  wheels:         [],
+  members:        [], // [{ rider, frameId, wheelId, order }]
+  speed:          44,
+  draft2:         0.80,
+  draftN:         0.75,
+  defaultFrameId: null,
+  defaultWheelId: null,
 };
 
 // ---- エントリーポイント ----
@@ -29,7 +34,9 @@ export async function renderMain(container) {
   const [riders, frames, wheels] = await Promise.all([
     fetchRiders(), fetchFrames(), fetchWheels(),
   ]);
-  state = { ...state, riders, frames, wheels, members: [] };
+  const defaultFrameId = frames.find((f) => f.name === DEFAULT_FRAME_NAME)?.id ?? null;
+  const defaultWheelId = wheels.find((w) => w.name === DEFAULT_WHEEL_NAME)?.id ?? null;
+  state = { ...state, riders, frames, wheels, members: [], defaultFrameId, defaultWheelId };
   render(container);
 }
 
@@ -280,7 +287,7 @@ function bindEvents(container) {
       if (state.members.length >= 8) return;
       const rider = state.riders.find((r) => r.id === riderId);
       if (!rider) return;
-      state.members.push({ rider, frameId: null, wheelId: null, order: state.members.length + 1 });
+      state.members.push({ rider, frameId: state.defaultFrameId, wheelId: state.defaultWheelId, order: state.members.length + 1 });
     }
     render(container);
   };
