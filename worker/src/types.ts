@@ -5,6 +5,7 @@
 /** Cloudflare Workers の環境変数・バインディング */
 export interface Env {
   DB: D1Database;
+  SECRET_PASSWORD: string;
 }
 
 // ---- D1 Row 型 ----

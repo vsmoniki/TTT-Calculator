@@ -8,6 +8,9 @@ import { renderGear }     from './pages/gear.js';
 import { renderTeams }    from './pages/teams.js';
 import { renderLineups }  from './pages/lineups.js';
 import { renderSimulate } from './pages/simulate.js';
+import { setAuthPassword } from './api.js';
+
+const FRONT_PASSWORD = 'TMR';
 
 const PAGES = {
   main:     renderMain,
@@ -18,6 +21,11 @@ const PAGES = {
   simulate: renderSimulate,
 };
 
+const authGate = document.getElementById('auth-gate');
+const authForm = document.getElementById('auth-form');
+const authError = document.getElementById('auth-error');
+const passwordInput = document.getElementById('password-input');
+const appShell = document.getElementById('app-shell');
 const content = document.getElementById('content');
 
 function getPage() {
@@ -51,5 +59,23 @@ async function navigate() {
   }
 }
 
-window.addEventListener('hashchange', navigate);
-navigate();
+function unlockApp(password) {
+  setAuthPassword(password);
+  authGate.hidden = true;
+  appShell.hidden = false;
+  window.addEventListener('hashchange', navigate);
+  navigate();
+}
+
+authForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const password = passwordInput.value.normalize('NFKC').trim();
+
+  if (password !== FRONT_PASSWORD) {
+    authError.hidden = false;
+    return;
+  }
+
+  authError.hidden = true;
+  unlockApp(password);
+});
