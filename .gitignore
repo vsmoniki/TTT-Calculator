@@ -6,3 +6,4 @@ dist/
 .env.*
 !.env.example
 scripts/sync-output.sql
+worker/.dev.vars
