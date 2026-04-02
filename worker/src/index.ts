@@ -2,7 +2,7 @@
 // TTT Calculator - Cloudflare Workers メインルーター
 // =============================================
 import { Env } from './types';
-import { preflight, notFound } from './response';
+import { error, preflight, notFound } from './response';
 import { listRoutes, getRoute } from './routes/routes';
 import { listFrames } from './routes/frames';
 import { listWheels } from './routes/wheels';
@@ -14,10 +14,20 @@ import {
 } from './routes/lineups';
 import { simulate } from './routes/simulate';
 
+function isAuthorized(request: Request, env: Env): boolean {
+  const authHeader = request.headers.get('Authorization');
+  const expected = `Bearer ${env.SECRET_PASSWORD}`;
+  return authHeader === expected;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     // CORSプリフライト
     if (request.method === 'OPTIONS') return preflight();
+
+    if (!isAuthorized(request, env)) {
+      return error('UNAUTHORIZED', 'Unauthorized', 401);
+    }
 
     const url = new URL(request.url);
     const path = url.pathname;

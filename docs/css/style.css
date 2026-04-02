@@ -435,3 +435,21 @@ tbody tr:hover { background: var(--color-surface2); }
   font-size: 0.9rem;
   flex-shrink: 0;
 }
+
+/* ---- 認証ゲート ---- */
+.auth-gate {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+.auth-card {
+  width: min(420px, 100%);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+.auth-form { margin-top: 16px; }
+.auth-error { margin-top: 12px; margin-bottom: 0; }
