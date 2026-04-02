@@ -69,7 +69,7 @@ function unlockApp(password) {
 
 authForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  const password = passwordInput.value;
+  const password = passwordInput.value.normalize('NFKC').trim();
 
   if (password !== FRONT_PASSWORD) {
     authError.hidden = false;
