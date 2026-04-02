@@ -80,7 +80,19 @@ npm run db:migrate:local
 npm run db:seed:local
 ```
 
-### 4. Workers をローカル起動
+### 4. Cloudflare Secret の設定（必須）
+
+`SECRET_PASSWORD` を Cloudflare の Secret として設定してください。今回の想定値は `TMR` です。
+
+```bash
+# worker/ ディレクトリで実行
+npx wrangler secret put SECRET_PASSWORD
+# プロンプトで TMR を入力
+```
+
+ローカル開発時も `wrangler dev` で同じ Secret が利用されます。
+
+### 5. Workers をローカル起動
 
 ```bash
 npm run dev
@@ -160,6 +172,10 @@ cd worker
 # 本番用 D1 データベース作成（初回のみ）
 npx wrangler d1 create ttt-calculator
 # → 表示された database_id を wrangler.toml に設定
+
+# Secret 設定（必須）
+npx wrangler secret put SECRET_PASSWORD
+# プロンプトで TMR を入力
 
 # 本番マイグレーション
 npm run db:migrate:remote
