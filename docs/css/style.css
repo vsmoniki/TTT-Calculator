@@ -200,6 +200,9 @@ tbody tr:hover { background: var(--color-surface2); }
   border-color: var(--color-primary);
 }
 .form-group select option { background: var(--color-surface2); }
+.password-like-input {
+  -webkit-text-security: disc;
+}
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
