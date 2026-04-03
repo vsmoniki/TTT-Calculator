@@ -28,6 +28,7 @@ const authError = document.getElementById('auth-error');
 const passwordInput = document.getElementById('password-input');
 const appShell = document.getElementById('app-shell');
 const content = document.getElementById('content');
+const logoutButton = document.getElementById('logout-button');
 
 function getPage() {
   // URL: index.html#/courses → 'courses'
@@ -69,6 +70,12 @@ function unlockApp(password) {
   navigate();
 }
 
+function logout() {
+  setAuthPassword('');
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  location.reload();
+}
+
 authForm.addEventListener('submit', (event) => {
   event.preventDefault();
   const password = passwordInput.value.normalize('NFKC').trim();
@@ -81,6 +88,8 @@ authForm.addEventListener('submit', (event) => {
   authError.hidden = true;
   unlockApp(password);
 });
+
+logoutButton?.addEventListener('click', logout);
 
 const savedPassword = localStorage.getItem(AUTH_STORAGE_KEY);
 if (savedPassword === FRONT_PASSWORD) {
