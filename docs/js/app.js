@@ -8,10 +8,6 @@ import { renderGear }     from './pages/gear.js';
 import { renderTeams }    from './pages/teams.js';
 import { renderLineups }  from './pages/lineups.js';
 import { renderSimulate } from './pages/simulate.js';
-import { setAuthPassword } from './api.js';
-
-const FRONT_PASSWORD = 'TMR';
-const AUTH_STORAGE_KEY = 'ttt-auth-password';
 
 const PAGES = {
   main:     renderMain,
@@ -22,13 +18,8 @@ const PAGES = {
   simulate: renderSimulate,
 };
 
-const authGate = document.getElementById('auth-gate');
-const authForm = document.getElementById('auth-form');
-const authError = document.getElementById('auth-error');
-const passwordInput = document.getElementById('password-input');
 const appShell = document.getElementById('app-shell');
-const content = document.getElementById('content');
-const logoutButton = document.getElementById('logout-button');
+const content  = document.getElementById('content');
 
 function getPage() {
   // URL: index.html#/courses → 'courses'
@@ -61,39 +52,6 @@ async function navigate() {
   }
 }
 
-function unlockApp(password) {
-  setAuthPassword(password);
-  localStorage.setItem(AUTH_STORAGE_KEY, password);
-  authGate.remove();
-  appShell.hidden = false;
-  window.addEventListener('hashchange', navigate);
-  navigate();
-}
-
-function logout() {
-  setAuthPassword('');
-  localStorage.removeItem(AUTH_STORAGE_KEY);
-  location.reload();
-}
-
-authForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const password = passwordInput.value;
-
-  if (password !== FRONT_PASSWORD) {
-    authError.hidden = false;
-    return;
-  }
-
-  authError.hidden = true;
-  unlockApp(password);
-});
-
-logoutButton?.addEventListener('click', logout);
-
-const savedPassword = localStorage.getItem(AUTH_STORAGE_KEY);
-if (savedPassword === FRONT_PASSWORD) {
-  unlockApp(savedPassword);
-} else {
-  authGate.hidden = false;
-}
+appShell.hidden = false;
+window.addEventListener('hashchange', navigate);
+navigate();

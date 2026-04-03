@@ -5,18 +5,8 @@
 // =============================================
 import { API_BASE } from './config.js';
 
-let authPassword = null;
-
-export function setAuthPassword(password) {
-  authPassword = password;
-}
-
 function getHeaders() {
-  const headers = { 'Content-Type': 'application/json' };
-  if (authPassword) {
-    headers.Authorization = `Bearer ${authPassword}`;
-  }
-  return headers;
+  return { 'Content-Type': 'application/json' };
 }
 
 async function request(method, path, body) {
