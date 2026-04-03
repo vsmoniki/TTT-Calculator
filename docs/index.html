@@ -14,7 +14,17 @@
       <h1 class="site-title">⚡ TTT Calculator</h1>
       <p class="site-subtitle">パスワードを入力して利用を開始してください。</p>
       <div class="form-group">
-        <input id="password-input" name="password" type="password" autocomplete="current-password" required />
+        <input
+          id="password-input"
+          name="password"
+          type="text"
+          class="password-like-input"
+          autocomplete="off"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
+          required
+        />
       </div>
       <button type="submit" class="btn btn-primary">ログイン</button>
       <p id="auth-error" class="error-msg auth-error" hidden>パスワードが正しくありません。</p>
