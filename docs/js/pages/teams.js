@@ -338,7 +338,7 @@ function renderTeamCard(team) {
 
       ${!atLimit ? `
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <select id="add-member-sel-${team.id}" style="flex:1;min-width:180px;background:var(--color-surface2);border:1px solid var(--color-border);border-radius:var(--radius);color:var(--color-text);padding:6px 8px;font-size:0.88rem;">
+          <select id="add-member-sel-${team.id}" style="flex:1;min-width:180px;background:var(--color-surface2);border:1px solid var(--color-border);border-radius:var(--radius);color:var(--color-text);padding:6px 8px;font-size:16px;">
             <option value="">— ライダーを選択 —</option>
             ${availableRiders.map((r) => `<option value="${r.id}">${esc(r.name)} (${r.weight_kg}kg / ${r.ftp_w}W)</option>`).join('')}
           </select>
