@@ -181,25 +181,25 @@ tbody tr:hover { background: var(--color-surface2); }
   color: var(--color-text-muted);
   margin-bottom: 4px;
 }
-.form-group input,
-.form-group select,
-.form-group textarea {
+input,
+select,
+textarea {
   width: 100%;
   background: var(--color-surface2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   color: var(--color-text);
   padding: 8px 10px;
-  font-size: 1rem; /* iOS Safariの入力時ズーム防止 */
+  font-size: 16px; /* iOS Safariの入力時ズーム防止 */
   transition: border-color 0.2s;
 }
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   outline: none;
   border-color: var(--color-primary);
 }
-.form-group select option { background: var(--color-surface2); }
+select option { background: var(--color-surface2); }
 .password-like-input {
   -webkit-text-security: disc;
 }
