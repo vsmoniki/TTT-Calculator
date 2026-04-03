@@ -77,3 +77,6 @@ export const simulate = (body) => post('/simulate', body);
 
 // ---- Auth ----
 export const apiLogin = (password) => post('/auth', { password });
+
+// ---- Zwift ----
+export const fetchZwiftRider = (zwiftId) => get(`/zwift-rider?id=${encodeURIComponent(zwiftId)}`);

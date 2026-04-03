@@ -14,6 +14,7 @@ import {
 } from './routes/lineups';
 import { simulate } from './routes/simulate';
 import { authLogin } from './routes/auth';
+import { getZwiftRider } from './routes/zwift';
 
 function isAuthorized(request: Request, env: Env): boolean {
   const authHeader = request.headers.get('Authorization');
@@ -113,6 +114,11 @@ export default {
     // ---- /simulate ----
     if (segments[0] === 'simulate' && segments.length === 1 && method === 'POST') {
       return simulate(request, env);
+    }
+
+    // ---- /zwift-rider ----
+    if (segments[0] === 'zwift-rider' && segments.length === 1 && method === 'GET') {
+      return getZwiftRider(request, env);
     }
 
     return notFound('Endpoint');

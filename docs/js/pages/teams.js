@@ -7,6 +7,7 @@
 import {
   fetchTeams, createTeam, addTeamMember, removeTeamMember,
   fetchRiders, createRider, updateRider, deleteRider,
+  fetchZwiftRider,
 } from '../api.js';
 
 const MAX_MEMBERS = 8;
@@ -35,6 +36,16 @@ function render() {
     <div class="section">
       <div class="section-title">新規ライダー登録</div>
       <div class="card">
+        <!-- Zwift ID 自動取得 -->
+        <div class="form-group">
+          <label>Zwift ID で自動取得（任意）</label>
+          <div style="display:flex;gap:8px;">
+            <input type="number" id="rider-zwift-id" placeholder="例: 1234567" style="flex:1" />
+            <button class="btn btn-secondary" id="rider-zwift-fetch" type="button">自動取得</button>
+          </div>
+          <p id="rider-zwift-msg" class="text-muted text-sm mt-8" style="display:none"></p>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--color-border);margin:12px 0" />
         <div class="form-row">
           <div class="form-group">
             <label>名前 *</label>
@@ -164,6 +175,25 @@ function render() {
 }
 
 function bindEvents() {
+  // ---- Zwift ID 自動取得 ----
+  document.getElementById('rider-zwift-fetch').addEventListener('click', async () => {
+    const msgEl   = document.getElementById('rider-zwift-msg');
+    const zwiftId = document.getElementById('rider-zwift-id').value.trim();
+    if (!zwiftId) { msgEl.textContent = 'Zwift IDを入力してください。'; msgEl.style.display = 'block'; return; }
+
+    msgEl.textContent = '取得中...'; msgEl.style.display = 'block';
+    try {
+      const data = await fetchZwiftRider(zwiftId);
+      if (data.name)      document.getElementById('rider-name').value   = data.name;
+      if (data.weight_kg) document.getElementById('rider-weight').value = data.weight_kg;
+      if (data.ftp_w)     document.getElementById('rider-ftp').value    = data.ftp_w;
+      if (data.height_cm) document.getElementById('rider-height').value = data.height_cm;
+      msgEl.textContent = '取得しました。内容を確認して登録ボタンを押してください。';
+    } catch (e) {
+      msgEl.textContent = `取得失敗: ${e.message ?? 'エラーが発生しました'}`;
+    }
+  });
+
   // ---- ライダー登録 ----
   document.getElementById('rider-submit').addEventListener('click', async () => {
     const errEl = document.getElementById('rider-error');
