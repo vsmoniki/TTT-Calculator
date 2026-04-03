@@ -10,18 +10,14 @@
 </head>
 <body>
   <main id="auth-gate" class="auth-gate" role="main">
-    <section class="auth-card" aria-labelledby="auth-title">
-      <h1 id="auth-title" class="site-title">⚡ TTT Calculator</h1>
-      <p class="site-subtitle">パスワードを入力して利用を開始してください。</p>
-      <form id="auth-form" class="auth-form">
-        <div class="form-group">
-          <label for="password-input">パスワード</label>
-          <input id="password-input" name="password" type="password" autocomplete="current-password" required />
-        </div>
-        <button type="submit" class="btn btn-primary">ログイン</button>
-        <p id="auth-error" class="error-msg auth-error" hidden>パスワードが正しくありません。</p>
-      </form>
-    </section>
+    <form id="auth-form" class="auth-form" aria-label="ログインフォーム">
+      <div class="form-group">
+        <label for="password-input">パスワード</label>
+        <input id="password-input" name="password" type="password" autocomplete="current-password" required />
+      </div>
+      <button type="submit" class="btn btn-primary">ログイン</button>
+      <p id="auth-error" class="error-msg auth-error" hidden>パスワードが正しくありません。</p>
+    </form>
   </main>
 
   <div id="app-shell" hidden>
