@@ -78,7 +78,7 @@ function logout() {
 
 authForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  const password = passwordInput.value.normalize('NFKC').trim();
+  const password = passwordInput.value;
 
   if (password !== FRONT_PASSWORD) {
     authError.hidden = false;
