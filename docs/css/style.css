@@ -190,7 +190,7 @@ tbody tr:hover { background: var(--color-surface2); }
   border-radius: var(--radius);
   color: var(--color-text);
   padding: 8px 10px;
-  font-size: 0.9rem;
+  font-size: 1rem; /* iOS Safariの入力時ズーム防止 */
   transition: border-color 0.2s;
 }
 .form-group input:focus,
