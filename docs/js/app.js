@@ -11,6 +11,7 @@ import { renderSimulate } from './pages/simulate.js';
 import { setAuthPassword } from './api.js';
 
 const FRONT_PASSWORD = 'TMR';
+const AUTH_STORAGE_KEY = 'ttt-auth-password';
 
 const PAGES = {
   main:     renderMain,
@@ -61,6 +62,7 @@ async function navigate() {
 
 function unlockApp(password) {
   setAuthPassword(password);
+  localStorage.setItem(AUTH_STORAGE_KEY, password);
   authGate.hidden = true;
   appShell.hidden = false;
   window.addEventListener('hashchange', navigate);
@@ -79,3 +81,8 @@ authForm.addEventListener('submit', (event) => {
   authError.hidden = true;
   unlockApp(password);
 });
+
+const savedPassword = localStorage.getItem(AUTH_STORAGE_KEY);
+if (savedPassword === FRONT_PASSWORD) {
+  unlockApp(savedPassword);
+}
