@@ -8,10 +8,9 @@ import { renderGear }     from './pages/gear.js';
 import { renderTeams }    from './pages/teams.js';
 import { renderLineups }  from './pages/lineups.js';
 import { renderSimulate } from './pages/simulate.js';
-import { setAuthPassword } from './api.js';
+import { setAuthPassword, apiLogin } from './api.js';
 
-const FRONT_PASSWORD = 'TMR';
-const AUTH_STORAGE_KEY = 'ttt-auth-password';
+const AUTH_STORAGE_KEY = 'ttt-auth-token';
 
 const PAGES = {
   main:     renderMain,
@@ -61,9 +60,9 @@ async function navigate() {
   }
 }
 
-function unlockApp(password) {
-  setAuthPassword(password);
-  localStorage.setItem(AUTH_STORAGE_KEY, password);
+function unlockApp(token) {
+  setAuthPassword(token);
+  localStorage.setItem(AUTH_STORAGE_KEY, token);
   authGate.remove();
   appShell.hidden = false;
   window.addEventListener('hashchange', navigate);
@@ -76,24 +75,24 @@ function logout() {
   location.reload();
 }
 
-authForm.addEventListener('submit', (event) => {
+authForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const password = passwordInput.value;
 
-  if (password !== FRONT_PASSWORD) {
+  try {
+    const { token } = await apiLogin(password);
+    authError.hidden = true;
+    unlockApp(token);
+  } catch {
     authError.hidden = false;
-    return;
   }
-
-  authError.hidden = true;
-  unlockApp(password);
 });
 
 logoutButton?.addEventListener('click', logout);
 
-const savedPassword = localStorage.getItem(AUTH_STORAGE_KEY);
-if (savedPassword === FRONT_PASSWORD) {
-  unlockApp(savedPassword);
+const savedToken = localStorage.getItem(AUTH_STORAGE_KEY);
+if (savedToken) {
+  unlockApp(savedToken);
 } else {
   authGate.hidden = false;
 }

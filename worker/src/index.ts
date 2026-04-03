@@ -13,6 +13,7 @@ import {
   addLineupMember, updateLineupMember, removeLineupMember, swapLineupMemberOrder,
 } from './routes/lineups';
 import { simulate } from './routes/simulate';
+import { authLogin } from './routes/auth';
 
 function isAuthorized(request: Request, env: Env): boolean {
   const authHeader = request.headers.get('Authorization');
@@ -24,6 +25,9 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     // CORSプリフライト
     if (request.method === 'OPTIONS') return preflight();
+
+    // 認証エンドポイントは認証チェック不要
+    if (path === '/auth' && method === 'POST') return authLogin(request, env);
 
     if (!isAuthorized(request, env)) {
       return error('UNAUTHORIZED', 'Unauthorized', 401);

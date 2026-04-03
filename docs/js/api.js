@@ -74,3 +74,6 @@ export const swapLineupMembers  = (lineupId, aId, bId) => post(`/lineups/${lineu
 
 // ---- Simulate ----
 export const simulate = (body) => post('/simulate', body);
+
+// ---- Auth ----
+export const apiLogin = (password) => post('/auth', { password });
