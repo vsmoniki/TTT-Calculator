@@ -63,7 +63,7 @@ async function navigate() {
 function unlockApp(password) {
   setAuthPassword(password);
   localStorage.setItem(AUTH_STORAGE_KEY, password);
-  authGate.hidden = true;
+  authGate.remove();
   appShell.hidden = false;
   window.addEventListener('hashchange', navigate);
   navigate();
@@ -85,4 +85,6 @@ authForm.addEventListener('submit', (event) => {
 const savedPassword = localStorage.getItem(AUTH_STORAGE_KEY);
 if (savedPassword === FRONT_PASSWORD) {
   unlockApp(savedPassword);
+} else {
+  authGate.hidden = false;
 }
