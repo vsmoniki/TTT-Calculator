@@ -31,7 +31,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: worker
           wranglerVersion: '4.0.0'
-          command: d1 migrations apply ttt-db --remote
+          command: d1 migrations apply ttt-db
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
