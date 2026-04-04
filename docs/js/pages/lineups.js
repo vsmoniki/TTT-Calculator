@@ -17,6 +17,9 @@ let state = {
   saving: new Set(),
 };
 
+const DEFAULT_FRAME_NAME = 'Cadex Tri';
+const DEFAULT_WHEEL_NAME = 'DTSwiss ARC 1100 DICUT 85/Disc';
+
 export async function renderLineups(container) {
   const [teams, routes, frames, wheels, lineups] = await Promise.all([
     fetchTeams(), fetchRoutes(), fetchFrames(), fetchWheels(), fetchLineups(),
@@ -279,9 +282,15 @@ function bindDetailEvents(container) {
     } else {
       const usedOrders = new Set((state.lineup.members ?? []).map((m) => m.order_index));
       const nextOrder  = [1,2,3,4,5,6,7,8].find((n) => !usedOrders.has(n)) ?? 1;
-      const defaultFrameId = state.frames.find((f) => f.name === 'Cadex Tri')?.id ?? null;
+      const defaultFrameId = state.frames.find((f) => f.name === DEFAULT_FRAME_NAME)?.id ?? null;
+      const defaultWheelId = state.wheels.find((w) => w.name === DEFAULT_WHEEL_NAME)?.id ?? null;
       try {
-        await addLineupMember(state.lineupId, { rider_id: riderId, order_index: nextOrder, frame_id: defaultFrameId });
+        await addLineupMember(state.lineupId, {
+          rider_id: riderId,
+          order_index: nextOrder,
+          frame_id: defaultFrameId,
+          wheel_id: defaultWheelId,
+        });
         await renderDetail(container);
       } catch (e) { alert(e.message ?? 'エラーが発生しました'); }
     }
