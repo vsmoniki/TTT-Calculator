@@ -19,6 +19,7 @@ let state = {
 
 const DEFAULT_FRAME_CANDIDATES = ['Cadex Tri', 'CADEX tri', 'Canyon Aeroad 2021'];
 const DEFAULT_WHEEL_CANDIDATES = ['DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
+const TRON_FRAME_CANDIDATES = ['Zwift Concept Z1 (Tron)', 'Tron'];
 
 function normalizeName(name) {
   return String(name ?? '').toLowerCase().replace(/[\s_-]/g, '');
@@ -33,6 +34,28 @@ function findDefaultGearId(items, candidates) {
   const normalized = items.find((item) => normalizedCandidates.has(normalizeName(item.name)));
   if (normalized) return normalized.id;
   return items[0]?.id ?? null;
+}
+
+function findTronFrameId(frames) {
+  return findDefaultGearId(frames, TRON_FRAME_CANDIDATES);
+}
+
+function getSelectableFrames() {
+  const defaultFrameId = findDefaultGearId(state.frames, DEFAULT_FRAME_CANDIDATES);
+  const tronFrameId = findTronFrameId(state.frames);
+  const allowed = new Set([defaultFrameId, tronFrameId].filter(Boolean));
+  return state.frames.filter((f) => allowed.has(f.id));
+}
+
+function getSelectableWheels() {
+  const defaultWheelId = findDefaultGearId(state.wheels, DEFAULT_WHEEL_CANDIDATES);
+  if (!defaultWheelId) return [];
+  return state.wheels.filter((w) => w.id === defaultWheelId);
+}
+
+function isTronFrame(frameId) {
+  const tronId = findTronFrameId(state.frames);
+  return !!tronId && frameId === tronId;
 }
 
 export async function renderLineups(container) {
@@ -233,6 +256,9 @@ async function renderDetail(container) {
 }
 
 function renderMemberCard(m, idx, total) {
+  const selectableFrames = getSelectableFrames();
+  const selectableWheels = getSelectableWheels();
+  const tronSelected = isTronFrame(m.frame_id);
   return `
     <div class="member-card" id="mcard-${m.id}">
       <div class="member-card-header">
@@ -254,14 +280,14 @@ function renderMemberCard(m, idx, total) {
           <label>フレーム</label>
           <select id="frame-sel-${m.id}" onchange="saveGear(${m.id})">
             <option value="">— なし —</option>
-            ${state.frames.map((f) => `<option value="${f.id}" ${f.id === m.frame_id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
+            ${selectableFrames.map((f) => `<option value="${f.id}" ${f.id === m.frame_id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group" style="margin:0">
           <label>ホイール</label>
-          <select id="wheel-sel-${m.id}" onchange="saveGear(${m.id})">
+          <select id="wheel-sel-${m.id}" onchange="saveGear(${m.id})" ${tronSelected ? 'disabled' : ''}>
             <option value="">— なし —</option>
-            ${state.wheels.map((w) => `<option value="${w.id}" ${w.id === m.wheel_id ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}
+            ${selectableWheels.map((w) => `<option value="${w.id}" ${w.id === m.wheel_id ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -327,12 +353,15 @@ function bindDetailEvents(container) {
     }
 
     try {
+      const frameId = frameVal ? parseInt(frameVal) : null;
+      const wheelId = wheelVal ? parseInt(wheelVal) : null;
       await updateLineupMember(state.lineupId, memberId, {
-        frame_id: frameVal ? parseInt(frameVal) : null,
-        wheel_id: wheelVal ? parseInt(wheelVal) : null,
+        frame_id: frameId,
+        wheel_id: isTronFrame(frameId) ? null : wheelId,
       });
       const ind = header?.querySelector('.saving-indicator');
       if (ind) { ind.textContent = '✓ 保存'; setTimeout(() => ind.remove(), 1500); }
+      await renderDetail(container);
     } catch (e) {
       if (errEl) { errEl.textContent = e.message ?? '保存エラー'; errEl.style.display = 'block'; }
     }
