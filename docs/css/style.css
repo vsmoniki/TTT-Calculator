@@ -473,3 +473,22 @@ select option { background: var(--color-surface2); }
   margin-top: 0;
 }
 .auth-error { margin-top: 12px; margin-bottom: 0; }
+
+/* ---- スケジュール ---- */
+.schedule-auto-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+.schedule-auto-toggle input {
+  width: 16px;
+  height: 16px;
+}
+.schedule-link {
+  color: var(--color-primary);
+}
+.schedule-link:hover {
+  text-decoration: underline;
+}
