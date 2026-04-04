@@ -6,6 +6,7 @@ import { renderMain }     from './pages/main.js';
 import { renderCourses }  from './pages/courses.js';
 import { renderGear }     from './pages/gear.js';
 import { renderTeams }    from './pages/teams.js';
+import { renderSchedule } from './pages/schedule.js';
 import { renderLineups }  from './pages/lineups.js';
 import { renderSimulate } from './pages/simulate.js';
 import { setAuthPassword, apiLogin } from './api.js';
@@ -17,6 +18,7 @@ const PAGES = {
   courses:  renderCourses,
   gear:     renderGear,
   teams:    renderTeams,
+  schedule: renderSchedule,
   lineups:  renderLineups,
   simulate: renderSimulate,
 };

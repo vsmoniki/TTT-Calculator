@@ -78,3 +78,6 @@ export const simulate = (body) => post('/simulate', body);
 // ---- Auth ----
 export const apiLogin = (password) => post('/auth', { password });
 
+
+// ---- Schedule ----
+export const fetchWtrlSchedule = () => get('/schedule/wtrl-ttt');
