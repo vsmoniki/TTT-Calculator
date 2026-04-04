@@ -10,20 +10,26 @@ interface ScheduleSpecial {
 }
 
 function parseUpcomingSpecials(html: string): ScheduleSpecial[] {
-  const anchor = 'Upcoming WTRL TTT Specials';
-  const startAt = html.indexOf(anchor);
-  if (startAt < 0) return [];
+  const anchors = [
+    'Upcoming WTRL TTT Specials',
+    'Upcoming TTT Specials',
+    'TTT Specials',
+  ];
+  const startAt = anchors
+    .map((anchor) => html.indexOf(anchor))
+    .find((index) => index >= 0);
 
-  const sliced = html.slice(startAt, startAt + 12000);
+  // HTML構造変更時でも拾えるよう、アンカーが見つからない場合はページ全体を対象にする
+  const sliced = startAt === undefined ? html : html.slice(startAt, startAt + 20000);
   const rows = sliced
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim())
+    .map((line) => line.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim())
     .filter(Boolean);
 
   const results: ScheduleSpecial[] = [];
-  const pattern = /^(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})\s*-\s*(.+)$/;
+  const pattern = /^((?:\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})|(?:[A-Za-z]+\s+\d{1,2}(?:,)?\s+\d{4})|(?:\d{4}-\d{2}-\d{2}))\s*[-–—:]\s*(.+)$/i;
 
   for (const row of rows) {
     const matched = row.match(pattern);
