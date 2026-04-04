@@ -28,7 +28,7 @@ async function refresh() {
 function render() {
   _container.innerHTML = `
     <div class="page-header">
-      <h2 class="page-title">チーム管理</h2>
+      <h2 class="page-title">メンバー一覧</h2>
     </div>
 
     <!-- ライダー登録 -->
