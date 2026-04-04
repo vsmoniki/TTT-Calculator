@@ -27,16 +27,16 @@ export default {
     // CORSプリフライト
     if (request.method === 'OPTIONS') return preflight();
 
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const method = request.method;
+
     // 認証エンドポイントは認証チェック不要
     if (path === '/auth' && method === 'POST') return authLogin(request, env);
 
     if (!isAuthorized(request, env)) {
       return error('UNAUTHORIZED', 'Unauthorized', 401);
     }
-
-    const url = new URL(request.url);
-    const path = url.pathname;
-    const method = request.method;
 
     // パスをセグメントに分割（先頭の / を除去）
     const segments = path.replace(/^\//, '').split('/');
