@@ -13,7 +13,7 @@ export async function getZwiftRider(request: Request, _env: Env): Promise<Respon
     return error('BAD_REQUEST', 'id パラメータに有効な数値を指定してください', 400);
   }
 
-  const apiUrl = `https://zwiftpower.com/api3.php?do=rider_profile&z=${encodeURIComponent(zwiftId)}`;
+  const apiUrl = `https://zwiftpower.com/cache3/profile/${encodeURIComponent(zwiftId)}_all.json`;
 
   let res: Response;
   try {
