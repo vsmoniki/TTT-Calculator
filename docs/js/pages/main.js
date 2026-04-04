@@ -17,6 +17,7 @@ const CRR       = 0.004;
 const G         = 9.81;
 const DEFAULT_FRAME_CANDIDATES = ['CADEX tri', 'Cadex Tri', 'Canyon Aeroad 2021'];
 const DEFAULT_WHEEL_CANDIDATES = ['DT Swiss ARC 1100 DICUT 85/Disc', 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
+const TRON_FRAME_CANDIDATES = ['Zwift Concept Z1 (Tron)', 'Tron'];
 const ROTATION_CYCLE_SEC = 120; // Auto Optimize のベース回転時間 (秒)
 
 let state = {
@@ -268,6 +269,25 @@ function findDefaultGearId(items, candidates) {
   return items[0]?.id ?? null;
 }
 
+function findTronFrameId(frames) {
+  return findDefaultGearId(frames, TRON_FRAME_CANDIDATES);
+}
+
+function getSelectableFrames() {
+  const allowed = new Set([state.defaultFrameId, findTronFrameId(state.frames)].filter(Boolean));
+  return state.frames.filter((f) => allowed.has(f.id));
+}
+
+function getSelectableWheels() {
+  if (!state.defaultWheelId) return [];
+  return state.wheels.filter((w) => w.id === state.defaultWheelId);
+}
+
+function isTronFrame(frameId) {
+  const tronId = findTronFrameId(state.frames);
+  return !!tronId && frameId === tronId;
+}
+
 // ============================================================
 // エントリーポイント
 // ============================================================
@@ -391,6 +411,9 @@ function render(container) {
 // ============================================================
 
 function renderMemberCard(m, idx, total) {
+  const selectableFrames = getSelectableFrames();
+  const selectableWheels = getSelectableWheels();
+  const tronSelected = isTronFrame(m.frameId);
   return `
     <div class="member-card" id="m-mcard-${m.rider.id}" draggable="true" data-rider-id="${m.rider.id}"
          style="cursor:grab">
@@ -413,14 +436,14 @@ function renderMemberCard(m, idx, total) {
           <label>フレーム</label>
           <select id="m-frame-${m.rider.id}" onchange="mainUpdateGear(${m.rider.id})">
             <option value="">— なし —</option>
-            ${state.frames.map((f)=>`<option value="${f.id}" ${f.id===m.frameId?'selected':''}>${esc(f.name)}</option>`).join('')}
+            ${selectableFrames.map((f)=>`<option value="${f.id}" ${f.id===m.frameId?'selected':''}>${esc(f.name)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group" style="margin:0">
           <label>ホイール</label>
-          <select id="m-wheel-${m.rider.id}" onchange="mainUpdateGear(${m.rider.id})">
+          <select id="m-wheel-${m.rider.id}" onchange="mainUpdateGear(${m.rider.id})" ${tronSelected ? 'disabled' : ''}>
             <option value="">— なし —</option>
-            ${state.wheels.map((w)=>`<option value="${w.id}" ${w.id===m.wheelId?'selected':''}>${esc(w.name)}</option>`).join('')}
+            ${selectableWheels.map((w)=>`<option value="${w.id}" ${w.id===m.wheelId?'selected':''}>${esc(w.name)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group" style="margin:0">
@@ -605,7 +628,9 @@ function bindEvents(container) {
     if (member) {
       member.frameId = fv ? parseInt(fv) : null;
       member.wheelId = wv ? parseInt(wv) : null;
-      refreshResults();
+      if (isTronFrame(member.frameId)) member.wheelId = null;
+      const containerEl = document.getElementById('content');
+      if (containerEl) render(containerEl); else refreshResults();
     }
   };
 
