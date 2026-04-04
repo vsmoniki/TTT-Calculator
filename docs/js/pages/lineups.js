@@ -17,8 +17,23 @@ let state = {
   saving: new Set(),
 };
 
-const DEFAULT_FRAME_NAME = 'Cadex Tri';
-const DEFAULT_WHEEL_NAME = 'DTSwiss ARC 1100 DICUT 85/Disc';
+const DEFAULT_FRAME_CANDIDATES = ['Cadex Tri', 'CADEX tri', 'Canyon Aeroad 2021'];
+const DEFAULT_WHEEL_CANDIDATES = ['DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
+
+function normalizeName(name) {
+  return String(name ?? '').toLowerCase().replace(/[\s_-]/g, '');
+}
+
+function findDefaultGearId(items, candidates) {
+  for (const candidate of candidates) {
+    const exact = items.find((item) => item.name === candidate);
+    if (exact) return exact.id;
+  }
+  const normalizedCandidates = new Set(candidates.map(normalizeName));
+  const normalized = items.find((item) => normalizedCandidates.has(normalizeName(item.name)));
+  if (normalized) return normalized.id;
+  return items[0]?.id ?? null;
+}
 
 export async function renderLineups(container) {
   const [teams, routes, frames, wheels, lineups] = await Promise.all([
@@ -282,8 +297,8 @@ function bindDetailEvents(container) {
     } else {
       const usedOrders = new Set((state.lineup.members ?? []).map((m) => m.order_index));
       const nextOrder  = [1,2,3,4,5,6,7,8].find((n) => !usedOrders.has(n)) ?? 1;
-      const defaultFrameId = state.frames.find((f) => f.name === DEFAULT_FRAME_NAME)?.id ?? null;
-      const defaultWheelId = state.wheels.find((w) => w.name === DEFAULT_WHEEL_NAME)?.id ?? null;
+      const defaultFrameId = findDefaultGearId(state.frames, DEFAULT_FRAME_CANDIDATES);
+      const defaultWheelId = findDefaultGearId(state.wheels, DEFAULT_WHEEL_CANDIDATES);
       try {
         await addLineupMember(state.lineupId, {
           rider_id: riderId,

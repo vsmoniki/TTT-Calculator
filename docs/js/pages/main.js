@@ -15,8 +15,8 @@ const BIKE_KG   = 8;
 const RHO       = 1.225;
 const CRR       = 0.004;
 const G         = 9.81;
-const DEFAULT_FRAME_NAME = 'CADEX tri';
-const DEFAULT_WHEEL_NAME = 'DT Swiss ARC 1100 DICUT 85/Disc';
+const DEFAULT_FRAME_CANDIDATES = ['CADEX tri', 'Cadex Tri', 'Canyon Aeroad 2021'];
+const DEFAULT_WHEEL_CANDIDATES = ['DT Swiss ARC 1100 DICUT 85/Disc', 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
 const ROTATION_CYCLE_SEC = 120; // Auto Optimize のベース回転時間 (秒)
 
 let state = {
@@ -253,14 +253,29 @@ function esc(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+function normalizeName(name) {
+  return String(name ?? '').toLowerCase().replace(/[\s_-]/g, '');
+}
+
+function findDefaultGearId(items, candidates) {
+  for (const candidate of candidates) {
+    const exact = items.find((item) => item.name === candidate);
+    if (exact) return exact.id;
+  }
+  const normalizedCandidates = new Set(candidates.map(normalizeName));
+  const normalized = items.find((item) => normalizedCandidates.has(normalizeName(item.name)));
+  if (normalized) return normalized.id;
+  return items[0]?.id ?? null;
+}
+
 // ============================================================
 // エントリーポイント
 // ============================================================
 
 export async function renderMain(container) {
   const [riders, frames, wheels] = await Promise.all([fetchRiders(), fetchFrames(), fetchWheels()]);
-  const defaultFrameId = frames.find((f) => f.name === DEFAULT_FRAME_NAME)?.id ?? null;
-  const defaultWheelId = wheels.find((w) => w.name === DEFAULT_WHEEL_NAME)?.id ?? null;
+  const defaultFrameId = findDefaultGearId(frames, DEFAULT_FRAME_CANDIDATES);
+  const defaultWheelId = findDefaultGearId(wheels, DEFAULT_WHEEL_CANDIDATES);
   state = { ...state, riders, frames, wheels, members: [], defaultFrameId, defaultWheelId };
 
   // URLステート復元
