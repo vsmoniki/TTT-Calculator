@@ -3,7 +3,6 @@
 // ・ライダー選択・プル時間・機材設定
 // ・ドラッグ&ドロップ並び替え
 // ・Auto Speed / Auto Order / Auto Optimize
-// ・JSON/リンク/画像エクスポート
 // ・URLステート復元
 // =============================================
 import { fetchRiders, fetchFrames, fetchWheels } from '../api.js';
@@ -146,14 +145,6 @@ function autoOptimizeVariable() {
 // URLステート
 // ============================================================
 
-function encodeState() {
-  const s = {
-    m: state.members.map((m) => ({ id: m.rider.id, f: m.frameId, w: m.wheelId, p: m.pull_sec, o: m.order })),
-    spd: state.speed, d2: state.draft2, dN: state.draftN, it: state.intensityTarget,
-  };
-  return btoa(encodeURIComponent(JSON.stringify(s)));
-}
-
 function decodeState(hash) {
   try {
     return JSON.parse(decodeURIComponent(atob(hash)));
@@ -171,47 +162,6 @@ function applyURLState(decoded) {
     if (!rider) return null;
     return { rider, frameId: entry.f ?? null, wheelId: entry.w ?? null, order: entry.o, pull_sec: entry.p ?? 30 };
   }).filter(Boolean);
-}
-
-// ============================================================
-// エクスポート
-// ============================================================
-
-function exportJSON() {
-  const rows = calcResults();
-  const payload = {
-    speed_kph: state.speed, draft_factor_2nd: state.draft2,
-    draft_factor_other: state.draftN, intensity_target: state.intensityTarget,
-    riders: rows.map((r) => ({
-      order: r.m.order, name: r.m.rider.name,
-      pull_sec: r.m.pull_sec, head_w: r.headW, draft_w: r.draftW,
-      head_ftp_pct: r.headPct, draft_ftp_pct: r.draftPct, avg_if: r.avgIF,
-    })),
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'ttt-plan.json' });
-  a.click(); URL.revokeObjectURL(a.href);
-}
-
-function exportLink() {
-  const url = `${location.origin}${location.pathname}#state=${encodeState()}`;
-  navigator.clipboard.writeText(url).then(() => {
-    showToast('リンクをコピーしました');
-  }).catch(() => {
-    prompt('以下のURLをコピーしてください:', url);
-  });
-}
-
-async function exportImage() {
-  const el = document.getElementById('m-results');
-  if (!el || !window.html2canvas) { alert('画像エクスポートが利用できません。'); return; }
-  try {
-    const canvas = await html2canvas(el, { backgroundColor: '#0f1923', scale: 2 });
-    const a = Object.assign(document.createElement('a'), { href: canvas.toDataURL('image/png'), download: 'ttt-plan.png' });
-    a.click();
-  } catch (e) {
-    alert('画像の生成に失敗しました: ' + e.message);
-  }
 }
 
 function showToast(msg) {
@@ -528,12 +478,6 @@ function renderResults() {
         ※ 平均IF = ローテーション中の平均強度。強度ターゲット(${state.intensityTarget})超えは<span class="pct-warn">橙</span>/<span class="pct-danger">赤</span>で警告。
       </p>
 
-      <!-- エクスポート -->
-      <div class="flex gap-8 wrap mt-12">
-        <button class="btn btn-secondary btn-sm" id="m-export-json">📥 JSON</button>
-        <button class="btn btn-secondary btn-sm" id="m-export-link">🔗 リンク共有</button>
-        <button class="btn btn-secondary btn-sm" id="m-export-img">📸 画像保存</button>
-      </div>
     </div>
   `;
 }
@@ -575,11 +519,6 @@ function bindEvents(container) {
     autoOptimizeVariable(); render(container);
     showToast(`速度 ${state.speed} kph・プル時間を最適化しました`);
   });
-
-  // エクスポート（results セクション内のボタン）
-  document.getElementById('m-export-json')?.addEventListener('click', exportJSON);
-  document.getElementById('m-export-link')?.addEventListener('click', exportLink);
-  document.getElementById('m-export-img')?.addEventListener('click', exportImage);
 
   // グローバル関数（innerHTML onXxx 用）
   window.mainToggleRider = (riderId) => {
@@ -689,8 +628,4 @@ function refreshResults() {
   el.innerHTML = state.members.length > 0
     ? renderResults()
     : '<p class="text-muted">メンバーを選択するとパワー計算が表示されます。</p>';
-  // エクスポートボタンを再バインド
-  document.getElementById('m-export-json')?.addEventListener('click', exportJSON);
-  document.getElementById('m-export-link')?.addEventListener('click', exportLink);
-  document.getElementById('m-export-img')?.addEventListener('click', exportImage);
 }
