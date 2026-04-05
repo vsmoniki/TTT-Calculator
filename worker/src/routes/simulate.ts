@@ -1,34 +1,31 @@
 // =============================================
 // POST /simulate — TTTシミュレーション
 // =============================================
-// 物理モデル（平坦近似）:
-//   v       = target_speed_kph / 3.6   [m/s]
-//   rho     = 1.225                    [kg/m³ 空気密度]
-//   Crr     = 0.004                    [転がり抵抗係数]
-//   g       = 9.81                     [m/s² 重力加速度]
-//   bike_kg = 8                        [kg バイク重量固定]
+// 物理モデル（コミュニティ近似）:
+//   P = P_gravity + P_roll + P_aero
 //
-//   CdA = CdA_base
-//         - (frame.aero_score - 5) * 0.005   ← フレーム空力補正
-//         - (wheel.aero_score - 5) * 0.004   ← ホイール空力補正
+//   P_gravity = M * g * v * sin(atan(G))
+//   P_roll    = M * g * v * Crr
+//   P_aero    = 0.5 * rho * CdA * v^3
 //
-//   F_aero = 0.5 * rho * CdA * v²     [N]
-//   F_roll = Crr * (weight_kg + bike_kg) * g  [N]
-//   P_head = (F_aero + F_roll) * v    [W] 先頭時必要パワー
+//   M = rider_weight + bike_weight
+//   G = grade_ratio（5% -> 0.05）
 //
-//   ドラフト（後続の空力抵抗軽減を一定係数で近似）:
-//     order_index = 1 → P_head（ドラフトなし）
-//     order_index = 2 → P_head * draft_factor_second（デフォルト 0.80）
-//     order_index >= 3 → P_head * draft_factor_other（デフォルト 0.75）
+//   Frontal area:
+//   A_road = 0.0276 * h^0.725 * m^0.425 + 0.1647
+//   A_tt   = 0.0293 * h^0.725 * m^0.425 + 0.0604
+//
+//   Cd (初期近似):
+//   road = 0.63, tt = 0.55
+//   CdA = Cd * A
+//
+//   ドラフト（CdA倍率で近似）:
+//   先頭: 1.0 / 後続: 0.715 / TT: 1.0（ドラフト無効）
 // =============================================
 
 import { Env, SimulateBody } from '../types';
 import { ok, badRequest, notFound } from '../response';
 
-// 基準 CdA（ロードポジション平均値）
-const CDA_BASE = 0.32;
-// 基準 aero_score（この値でCdA調整なし）
-const AERO_SCORE_BASELINE = 5.0;
 // バイク重量 [kg]
 const BIKE_KG = 8;
 // 空気密度 [kg/m³]
@@ -36,7 +33,14 @@ const RHO = 1.225;
 // 転がり抵抗係数
 const CRR = 0.004;
 // 重力加速度 [m/s²]
-const G = 9.81;
+const G = 9.80665;
+// Cd 初期近似
+const ROAD_CD = 0.63;
+const TT_CD = 0.55;
+// ドラフト CdA 係数（後続）
+const DEFAULT_DRAFT_CDA_MULTIPLIER = 0.715;
+// 身長未設定時の代替値 [m]
+const DEFAULT_HEIGHT_M = 1.75;
 
 interface MemberWithDetails {
   id: number;
@@ -45,22 +49,64 @@ interface MemberWithDetails {
   order_index: number;
   rider_name: string;
   weight_kg: number;
+  height_cm: number | null;
   ftp_w: number;
+  bike_type: string | null;
   frame_aero_score: number | null;
   wheel_aero_score: number | null;
 }
 
-/** ライダーの先頭必要パワーを計算 */
-function calcHeadPower(member: MemberWithDetails, v: number): number {
-  // フレーム・ホイールの aero_score でCdAを補正
-  // aero_score が基準(5)より高い → CdA が小さくなる（空力優秀）
-  const frameAdj = ((member.frame_aero_score ?? AERO_SCORE_BASELINE) - AERO_SCORE_BASELINE) * 0.005;
-  const wheelAdj = ((member.wheel_aero_score ?? AERO_SCORE_BASELINE) - AERO_SCORE_BASELINE) * 0.004;
-  const cda = Math.max(0.15, CDA_BASE - frameAdj - wheelAdj);
+function getRiderHeightM(member: MemberWithDetails): number {
+  if (!member.height_cm || member.height_cm <= 0) return DEFAULT_HEIGHT_M;
+  return member.height_cm / 100;
+}
 
-  const fAero = 0.5 * RHO * cda * v * v;
-  const fRoll = CRR * (member.weight_kg + BIKE_KG) * G;
-  return (fAero + fRoll) * v;
+function isTtBike(member: MemberWithDetails): boolean {
+  return (member.bike_type ?? 'road').toLowerCase() === 'tt';
+}
+
+function calcFrontalArea(member: MemberWithDetails): number {
+  const h = getRiderHeightM(member);
+  const m = member.weight_kg;
+
+  if (isTtBike(member)) {
+    return 0.0293 * Math.pow(h, 0.725) * Math.pow(m, 0.425) + 0.0604;
+  }
+
+  return 0.0276 * Math.pow(h, 0.725) * Math.pow(m, 0.425) + 0.1647;
+}
+
+function calcBaseCdA(member: MemberWithDetails): number {
+  const area = calcFrontalArea(member);
+  const cd = isTtBike(member) ? TT_CD : ROAD_CD;
+  return cd * area;
+}
+
+function calcRequiredPower(v: number, massKg: number, gradeRatio: number, effectiveCdA: number): number {
+  const pGravity = massKg * G * v * Math.sin(Math.atan(gradeRatio));
+  const pRoll = massKg * G * v * CRR;
+  const pAero = 0.5 * RHO * effectiveCdA * Math.pow(v, 3);
+  return pGravity + pRoll + pAero;
+}
+
+function calcDraftMultiplier(
+  member: MemberWithDetails,
+  draftFactorSecond: number,
+  draftFactorOther: number
+): number {
+  if (isTtBike(member)) return 1.0;
+  if (member.order_index === 1) return 1.0;
+  if (member.order_index === 2) return draftFactorSecond;
+  return draftFactorOther;
+}
+
+function calcAverageGradeRatio(route: Record<string, unknown>): number {
+  const distanceKm = Number(route.distance_km);
+  const elevationM = Number(route.elevation_m);
+  if (!Number.isFinite(distanceKm) || distanceKm <= 0) return 0;
+  if (!Number.isFinite(elevationM) || elevationM <= 0) return 0;
+  // 総獲得標高から代表勾配を作る（下り情報は未保持のため正側のみ）
+  return elevationM / (distanceKm * 1000);
 }
 
 export async function simulate(request: Request, env: Env): Promise<Response> {
@@ -75,8 +121,8 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     route_id,
     lineup_id,
     target_speed_kph,
-    draft_factor_second = 0.80,
-    draft_factor_other = 0.75,
+    draft_factor_second = DEFAULT_DRAFT_CDA_MULTIPLIER,
+    draft_factor_other = DEFAULT_DRAFT_CDA_MULTIPLIER,
   } = body;
 
   if (!route_id || typeof route_id !== 'number') return badRequest('route_id is required');
@@ -99,7 +145,9 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
       lm.id, lm.lineup_id, lm.rider_id, lm.order_index,
       r.name  AS rider_name,
       r.weight_kg,
+      r.height_cm,
       r.ftp_w,
+      f.bike_type,
       f.aero_score AS frame_aero_score,
       w.aero_score AS wheel_aero_score
     FROM lineup_members lm
@@ -119,22 +167,16 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
 
   // m/s に変換
   const v = target_speed_kph / 3.6;
+  const gradeRatio = calcAverageGradeRatio(route as Record<string, unknown>);
 
   // 各ライダーの必要パワーを計算
   const results = members.map((m) => {
-    const headW = calcHeadPower(m, v);
+    const totalMassKg = m.weight_kg + BIKE_KG;
+    const baseCdA = calcBaseCdA(m);
 
-    // ドラフト係数を適用して後続時の必要パワーを算出
-    let draftFactor: number;
-    if (m.order_index === 1) {
-      draftFactor = 1.0;
-    } else if (m.order_index === 2) {
-      draftFactor = draft_factor_second;
-    } else {
-      draftFactor = draft_factor_other;
-    }
-
-    const draftW = headW * draftFactor;
+    const headW = calcRequiredPower(v, totalMassKg, gradeRatio, baseCdA);
+    const draftCdA = baseCdA * calcDraftMultiplier(m, draft_factor_second, draft_factor_other);
+    const draftW = calcRequiredPower(v, totalMassKg, gradeRatio, draftCdA);
 
     return {
       rider_id: m.rider_id,
@@ -160,6 +202,7 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     route,
     lineup,
     target_speed_kph,
+    grade_ratio: gradeRatio,
     draft_factor_second,
     draft_factor_other,
     results,
