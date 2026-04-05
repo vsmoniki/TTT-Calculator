@@ -25,6 +25,8 @@ let state = {
   },
 };
 const TRON_FRAME_CANDIDATES = ['Zwift Concept Z1 (Tron)', 'Tron'];
+const CADEX_FRAME_CANDIDATES = ['Cadex Tri', 'CADEX tri'];
+const DT85_WHEEL_CANDIDATES = ['DT Swiss ARC 1100 DICUT 85/Disc', 'DTSwiss ARC 1100 DICUT 85/Disc'];
 
 function normalizeName(name) {
   return String(name ?? '').toLowerCase().replace(/[\s_-]/g, '');
@@ -45,26 +47,18 @@ function findTronFrameId(frames) {
   return findDefaultGearId(frames, TRON_FRAME_CANDIDATES);
 }
 
-function defaultFrameCandidates() {
-  return [state.settings.default_frame_name, 'Cadex Tri', 'CADEX tri', 'Canyon Aeroad 2021'].filter(Boolean);
-}
-
-function defaultWheelCandidates() {
-  return [state.settings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'].filter(Boolean);
-}
-
 function getSelectableEquipments() {
-  const defaultFrameId = findDefaultGearId(state.frames, defaultFrameCandidates());
-  const defaultWheelId = findDefaultGearId(state.wheels, defaultWheelCandidates());
+  const cadexFrameId = findDefaultGearId(state.frames, CADEX_FRAME_CANDIDATES);
+  const dt85WheelId = findDefaultGearId(state.wheels, DT85_WHEEL_CANDIDATES);
   const tronFrameId = findTronFrameId(state.frames);
   const equipments = [];
 
-  if (defaultFrameId && defaultWheelId) {
+  if (cadexFrameId && dt85WheelId) {
     equipments.push({
       key: 'cadex_dt85',
       label: 'Cadex Tri × DT Swiss ARC 1100 DICUT 85/Disc',
-      frame_id: defaultFrameId,
-      wheel_id: defaultWheelId,
+      frame_id: cadexFrameId,
+      wheel_id: dt85WheelId,
     });
   }
   if (tronFrameId) {
@@ -293,7 +287,6 @@ function renderMemberCard(m, idx, total) {
         <div class="form-group" style="margin:0">
           <label>機材</label>
           <select id="equipment-sel-${m.id}" onchange="saveGear(${m.id})">
-            <option value="">— なし —</option>
             ${selectableEquipments.map((eq) => `<option value="${eq.key}" ${selectedEquipment?.key === eq.key ? 'selected' : ''}>${esc(eq.label)}</option>`).join('')}
           </select>
         </div>
