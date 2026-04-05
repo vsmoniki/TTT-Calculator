@@ -8,12 +8,17 @@
 import { fetchRiders, fetchFrames, fetchWheels } from '../api.js';
 
 // ---- 物理定数 ----
-const CDA_BASE  = 0.32;
 const AERO_BASE = 5.0;
 const BIKE_KG   = 8;
 const RHO       = 1.225;
 const CRR       = 0.004;
 const G         = 9.81;
+const ROAD_CD   = 0.63;
+const TT_CD     = 0.55;
+const CDA_CALIBRATION_MULTIPLIER = 0.76;
+const EQUIPMENT_REFERENCE_TIME_SEC = 1668; // 27:48
+const EQUIPMENT_CDA_SENSITIVITY = 3;
+const DEFAULT_HEIGHT_M = 1.75;
 const DEFAULT_FRAME_CANDIDATES = ['CADEX tri', 'Cadex Tri', 'Canyon Aeroad 2021'];
 const DEFAULT_WHEEL_CANDIDATES = ['DT Swiss ARC 1100 DICUT 85/Disc', 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
 const TRON_FRAME_CANDIDATES = ['Zwift Concept Z1 (Tron)', 'Tron'];
@@ -36,12 +41,53 @@ let state = {
 function calcHeadPower(member, v) {
   const frame = state.frames.find((f) => f.id === member.frameId);
   const wheel = state.wheels.find((w) => w.id === member.wheelId);
-  const fAdj = ((frame?.aero_score ?? AERO_BASE) - AERO_BASE) * 0.005;
-  const wAdj = ((wheel?.aero_score ?? AERO_BASE) - AERO_BASE) * 0.004;
-  const cda  = Math.max(0.15, CDA_BASE - fAdj - wAdj);
+  const cda  = calcAdjustedCdA(member, frame, wheel);
   const fAero = 0.5 * RHO * cda * v * v;
   const fRoll = CRR * (member.rider.weight_kg + BIKE_KG) * G;
   return (fAero + fRoll) * v;
+}
+
+function getRiderHeightM(member) {
+  const heightCm = Number(member?.rider?.height_cm ?? 0);
+  return (heightCm > 0 ? heightCm : DEFAULT_HEIGHT_M * 100) / 100;
+}
+
+function isTtBike(frame) {
+  return String(frame?.bike_type ?? 'road').toLowerCase() === 'tt';
+}
+
+function calcFrontalArea(member, frame) {
+  const h = getRiderHeightM(member);
+  const m = Number(member?.rider?.weight_kg ?? 0);
+  const coeff = isTtBike(frame) ? 0.0293 : 0.0276;
+  const offset = isTtBike(frame) ? 0.0604 : 0.1647;
+  return coeff * Math.pow(h, 0.725) * Math.pow(m, 0.425) + offset;
+}
+
+function calcBaseCdA(member, frame) {
+  const cd = isTtBike(frame) ? TT_CD : ROAD_CD;
+  return cd * calcFrontalArea(member, frame) * CDA_CALIBRATION_MULTIPLIER;
+}
+
+function calcEquipmentCdAMultiplier(frame, wheel) {
+  const frameFlatDeltaSec = Number(frame?.flat_delta_sec ?? NaN);
+  const wheelFlatDeltaSec = Number(wheel?.flat_delta_sec ?? NaN);
+  const hasFlatDelta = Number.isFinite(frameFlatDeltaSec) || Number.isFinite(wheelFlatDeltaSec);
+
+  const flatDeltaSec = hasFlatDelta
+    ? (Number.isFinite(frameFlatDeltaSec) ? frameFlatDeltaSec : 0)
+      + (Number.isFinite(wheelFlatDeltaSec) ? wheelFlatDeltaSec : 0)
+    : -(((Number(frame?.aero_score ?? AERO_BASE) - AERO_BASE) * 4)
+      + ((Number(wheel?.aero_score ?? AERO_BASE) - AERO_BASE) * 4));
+
+  const multiplier = 1 + (EQUIPMENT_CDA_SENSITIVITY * flatDeltaSec) / EQUIPMENT_REFERENCE_TIME_SEC;
+  return Math.max(0.7, Math.min(1.3, multiplier));
+}
+
+function calcAdjustedCdA(member, frame, wheel) {
+  const baseCdA = calcBaseCdA(member, frame);
+  const equipmentCdAMultiplier = calcEquipmentCdAMultiplier(frame, wheel);
+  return Math.max(0.15, baseCdA * equipmentCdAMultiplier);
 }
 
 // ドラフト恩恵の平均係数（先頭以外の全ポジション平均）
