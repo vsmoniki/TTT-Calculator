@@ -25,8 +25,13 @@ export async function renderAdmin(container) {
       <span class="text-muted text-sm">ドラフト係数・計算定数・機材セットを編集</span>
     </div>
 
-    <div class="section">
-      <div class="section-title">シミュレーション共通設定</div>
+    <div class="inner-tabs" role="tablist" aria-label="管理設定メニュー">
+      <button class="inner-tab active" id="admin-tab-draft" type="button">ドラフト係数</button>
+      <button class="inner-tab" id="admin-tab-equipment" type="button">機材設定</button>
+    </div>
+
+    <div id="admin-panel-draft" class="section">
+      <div class="section-title">ドラフト係数</div>
       <div class="card">
         <div class="form-row">
           <div class="form-group"><label>2番手ドラフト係数</label><input type="number" step="0.01" id="s-draft2" value="${settings.draft_factor_2}" /></div>
@@ -39,25 +44,10 @@ export async function renderAdmin(container) {
           <div class="form-group"><label>7番手ドラフト係数</label><input type="number" step="0.01" id="s-draft7" value="${settings.draft_factor_7}" /></div>
           <div class="form-group"><label>8番手ドラフト係数</label><input type="number" step="0.01" id="s-draft8" value="${settings.draft_factor_8}" /></div>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label>Road Cd</label><input type="number" step="0.01" id="s-road-cd" value="${settings.road_cd}" /></div>
-          <div class="form-group"><label>TT Cd</label><input type="number" step="0.01" id="s-tt-cd" value="${settings.tt_cd}" /></div>
-          <div class="form-group"><label>CdA較正倍率</label><input type="number" step="0.01" id="s-cda-cal" value="${settings.cda_calibration_multiplier}" /></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>機材基準タイム(sec)</label><input type="number" step="1" id="s-eq-ref" value="${settings.equipment_reference_time_sec}" /></div>
-          <div class="form-group"><label>デフォルト身長(m)</label><input type="number" step="0.01" id="s-height" value="${settings.default_height_m}" /></div>
-        </div>
-
-        <div class="flex gap-8 wrap mt-12">
-          <button class="btn btn-primary" id="s-save">保存</button>
-          <button class="btn btn-secondary" id="s-reset">初期値に戻す</button>
-        </div>
-        <p class="text-muted text-sm mt-8" id="s-msg"></p>
       </div>
     </div>
 
-    <div class="section">
+    <div id="admin-panel-equipment" class="section" style="display:none;">
       <div class="section-title">機材設定</div>
       <div class="card">
         <div class="form-row">
@@ -71,8 +61,53 @@ export async function renderAdmin(container) {
         </div>
         <p class="text-muted text-sm">※ シミュレーション画面・ラインナップ画面の初期機材に反映されます。</p>
       </div>
+
+      <div class="card">
+        <div class="card-title">機材別 Cd 設定</div>
+        <div class="form-row">
+          <div class="form-group"><label>ロード機材 Cd</label><input type="number" step="0.01" id="s-road-cd" value="${settings.road_cd}" /></div>
+          <div class="form-group"><label>TT機材 Cd</label><input type="number" step="0.01" id="s-tt-cd" value="${settings.tt_cd}" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">機材シミュレーション補正</div>
+        <div class="form-row">
+          <div class="form-group"><label>CdA較正倍率</label><input type="number" step="0.01" id="s-cda-cal" value="${settings.cda_calibration_multiplier}" /></div>
+          <div class="form-group"><label>機材基準タイム(sec)</label><input type="number" step="1" id="s-eq-ref" value="${settings.equipment_reference_time_sec}" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>デフォルト身長(m)</label><input type="number" step="0.01" id="s-height" value="${settings.default_height_m}" /></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="flex gap-8 wrap mt-12">
+          <button class="btn btn-primary" id="s-save">保存</button>
+          <button class="btn btn-secondary" id="s-reset">初期値に戻す</button>
+        </div>
+        <p class="text-muted text-sm mt-8" id="s-msg"></p>
+      </div>
     </div>
   `;
+
+  const draftTab = container.querySelector('#admin-tab-draft');
+  const equipmentTab = container.querySelector('#admin-tab-equipment');
+  const draftPanel = container.querySelector('#admin-panel-draft');
+  const equipmentPanel = container.querySelector('#admin-panel-equipment');
+
+  const switchAdminTab = (tab) => {
+    const isDraft = tab === 'draft';
+    draftTab?.classList.toggle('active', isDraft);
+    equipmentTab?.classList.toggle('active', !isDraft);
+    if (draftPanel) draftPanel.style.display = isDraft ? '' : 'none';
+    if (equipmentPanel) equipmentPanel.style.display = isDraft ? 'none' : '';
+  };
+
+  draftTab?.addEventListener('click', () => switchAdminTab('draft'));
+  equipmentTab?.addEventListener('click', () => switchAdminTab('equipment'));
 
   container.querySelector('#s-save')?.addEventListener('click', async () => {
     const equipmentPreset = container.querySelector('#s-gear-preset')?.value === 'tron' ? 'tron' : 'tri_dtswiss';
