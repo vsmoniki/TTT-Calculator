@@ -18,6 +18,8 @@ const DEFAULT_SETTINGS = {
   default_frame_name: 'CADEX tri',
   default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
   equipment_preset: 'tri_dtswiss',
+  equipment_status_tri_dtswiss: 'enabled',
+  equipment_status_tron: 'enabled',
   default_frame_flat_delta_sec: 0,
   default_wheel_flat_delta_sec: 0,
 };
@@ -42,7 +44,13 @@ const NUMERIC_KEYS = [
   'default_wheel_flat_delta_sec',
 ] as const;
 
-const STRING_KEYS = ['default_frame_name', 'default_wheel_name', 'equipment_preset'] as const;
+const STRING_KEYS = [
+  'default_frame_name',
+  'default_wheel_name',
+  'equipment_preset',
+  'equipment_status_tri_dtswiss',
+  'equipment_status_tron',
+] as const;
 
 function toSettings(row: AppSettingsRow | null): Settings {
   if (!row?.settings_json) return { ...DEFAULT_SETTINGS };
@@ -58,6 +66,12 @@ function toSettings(row: AppSettingsRow | null): Settings {
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      equipment_status_tri_dtswiss:
+        parsed.equipment_status_tri_dtswiss
+        ?? (parsed.equipment_preset === 'tron' ? 'disabled' : 'enabled'),
+      equipment_status_tron:
+        parsed.equipment_status_tron
+        ?? 'enabled',
       draft_factor_2: factorSecond,
       draft_factor_3: Number(parsed.draft_factor_3 ?? factorOther),
       draft_factor_4: Number(parsed.draft_factor_4 ?? factorOther),
@@ -88,6 +102,12 @@ function validateStringField(key: (typeof STRING_KEYS)[number], value: unknown):
   if (!value.trim()) return `${key} must not be empty`;
   if (key === 'equipment_preset' && !['tri_dtswiss', 'tron'].includes(value.trim())) {
     return `${key} must be one of tri_dtswiss, tron`;
+  }
+  if (
+    (key === 'equipment_status_tri_dtswiss' || key === 'equipment_status_tron')
+    && !['enabled', 'disabled'].includes(value.trim())
+  ) {
+    return `${key} must be one of enabled, disabled`;
   }
   return null;
 }

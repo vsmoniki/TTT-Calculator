@@ -26,6 +26,8 @@ const DEFAULT_SETTINGS = {
   default_frame_name: 'CADEX tri',
   default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
   equipment_preset: 'tri_dtswiss',
+  equipment_status_tri_dtswiss: 'enabled',
+  equipment_status_tron: 'enabled',
   default_frame_flat_delta_sec: 0,
   default_wheel_flat_delta_sec: 0,
 };
@@ -245,16 +247,36 @@ function findTronFrameId(frames) {
   return findDefaultGearId(frames, TRON_FRAME_CANDIDATES);
 }
 
+function isTriEnabled() {
+  return state.settings.equipment_status_tri_dtswiss !== 'disabled';
+}
+
+function isTronEnabled() {
+  return state.settings.equipment_status_tron !== 'disabled';
+}
+
+function getInitialEquipmentSelection() {
+  const tronFrameId = findTronFrameId(state.frames);
+  if (isTriEnabled() && state.defaultFrameId) {
+    return { frameId: state.defaultFrameId, wheelId: state.defaultWheelId };
+  }
+  if (isTronEnabled() && tronFrameId) {
+    return { frameId: tronFrameId, wheelId: null };
+  }
+  return { frameId: null, wheelId: null };
+}
+
 function getSelectableFrames() {
   const tronId = findTronFrameId(state.frames);
-  const allowed = state.settings.equipment_preset === 'tron'
-    ? new Set([tronId].filter(Boolean))
-    : new Set([state.defaultFrameId, tronId].filter(Boolean));
+  const allowed = new Set([
+    isTriEnabled() ? state.defaultFrameId : null,
+    isTronEnabled() ? tronId : null,
+  ].filter(Boolean));
   return state.frames.filter((f) => allowed.has(f.id));
 }
 
 function getSelectableWheels() {
-  if (state.settings.equipment_preset === 'tron') return [];
+  if (!isTriEnabled()) return [];
   if (!state.defaultWheelId) return [];
   return state.wheels.filter((w) => w.id === state.defaultWheelId);
 }
@@ -509,8 +531,9 @@ function bindEvents(container) {
       if (state.members.length >= 8) return;
       const rider = state.riders.find((r) => r.id === riderId);
       if (!rider) return;
+      const initialEquipment = getInitialEquipmentSelection();
       state.members.push({
-        rider, frameId: state.defaultFrameId, wheelId: state.defaultWheelId,
+        rider, frameId: initialEquipment.frameId, wheelId: initialEquipment.wheelId,
         order: state.members.length + 1, pull_sec: 30,
       });
     }

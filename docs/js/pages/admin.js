@@ -14,6 +14,8 @@ const DEFAULT_SETTINGS = {
   equipment_reference_time_sec: 1668,
   default_height_m: 1.75,
   equipment_preset: 'tri_dtswiss',
+  equipment_status_tri_dtswiss: 'enabled',
+  equipment_status_tron: 'enabled',
 };
 
 export async function renderAdmin(container) {
@@ -52,10 +54,17 @@ export async function renderAdmin(container) {
       <div class="card">
         <div class="form-row">
           <div class="form-group">
-            <label>使用セット</label>
-            <select id="s-gear-preset">
-              <option value="tri_dtswiss" ${settings.equipment_preset === 'tri_dtswiss' ? 'selected' : ''}>Tri &amp; DTswiss セット</option>
-              <option value="tron" ${settings.equipment_preset === 'tron' ? 'selected' : ''}>Tron</option>
+            <label>Tri &amp; DTswiss セット ステータス</label>
+            <select id="s-gear-status-tri">
+              <option value="enabled" ${settings.equipment_status_tri_dtswiss !== 'disabled' ? 'selected' : ''}>有効</option>
+              <option value="disabled" ${settings.equipment_status_tri_dtswiss === 'disabled' ? 'selected' : ''}>無効</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tron ステータス</label>
+            <select id="s-gear-status-tron">
+              <option value="enabled" ${settings.equipment_status_tron !== 'disabled' ? 'selected' : ''}>有効</option>
+              <option value="disabled" ${settings.equipment_status_tron === 'disabled' ? 'selected' : ''}>無効</option>
             </select>
           </div>
         </div>
@@ -110,7 +119,9 @@ export async function renderAdmin(container) {
   equipmentTab?.addEventListener('click', () => switchAdminTab('equipment'));
 
   container.querySelector('#s-save')?.addEventListener('click', async () => {
-    const equipmentPreset = container.querySelector('#s-gear-preset')?.value === 'tron' ? 'tron' : 'tri_dtswiss';
+    const triStatus = container.querySelector('#s-gear-status-tri')?.value === 'disabled' ? 'disabled' : 'enabled';
+    const tronStatus = container.querySelector('#s-gear-status-tron')?.value === 'disabled' ? 'disabled' : 'enabled';
+    const equipmentPreset = triStatus === 'disabled' && tronStatus === 'enabled' ? 'tron' : 'tri_dtswiss';
     const presetDefaults = equipmentPreset === 'tron'
       ? { default_frame_name: 'Zwift Concept Z1 (Tron)', default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc' }
       : { default_frame_name: 'CADEX tri', default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc' };
@@ -128,6 +139,8 @@ export async function renderAdmin(container) {
       equipment_reference_time_sec: valNum(container, '#s-eq-ref'),
       default_height_m: valNum(container, '#s-height'),
       equipment_preset: equipmentPreset,
+      equipment_status_tri_dtswiss: triStatus,
+      equipment_status_tron: tronStatus,
       ...presetDefaults,
     };
 
@@ -166,7 +179,8 @@ function renderWithSettings(container, settings) {
       cda_calibration_multiplier: '#s-cda-cal',
       equipment_reference_time_sec: '#s-eq-ref',
       default_height_m: '#s-height',
-      equipment_preset: '#s-gear-preset',
+      equipment_status_tri_dtswiss: '#s-gear-status-tri',
+      equipment_status_tron: '#s-gear-status-tron',
     };
     const selector = map[key];
     if (!selector) return;
