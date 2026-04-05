@@ -20,6 +20,9 @@ const DEFAULT_SETTINGS = {
   equipment_preset: 'tri_dtswiss',
   equipment_status_tri_dtswiss: 'enabled',
   equipment_status_tron: 'enabled',
+  tri_frame_name: 'CADEX tri',
+  tri_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
+  tron_frame_name: 'Zwift Concept Z1 (Tron)',
   default_frame_flat_delta_sec: 0,
   default_wheel_flat_delta_sec: 0,
 };
@@ -50,6 +53,9 @@ const STRING_KEYS = [
   'equipment_preset',
   'equipment_status_tri_dtswiss',
   'equipment_status_tron',
+  'tri_frame_name',
+  'tri_wheel_name',
+  'tron_frame_name',
 ] as const;
 
 function toSettings(row: AppSettingsRow | null): Settings {
@@ -72,6 +78,11 @@ function toSettings(row: AppSettingsRow | null): Settings {
       equipment_status_tron:
         parsed.equipment_status_tron
         ?? 'enabled',
+      tri_frame_name: parsed.tri_frame_name ?? parsed.default_frame_name ?? DEFAULT_SETTINGS.tri_frame_name,
+      tri_wheel_name: parsed.tri_wheel_name ?? parsed.default_wheel_name ?? DEFAULT_SETTINGS.tri_wheel_name,
+      tron_frame_name: parsed.tron_frame_name ?? DEFAULT_SETTINGS.tron_frame_name,
+      default_frame_name: parsed.tri_frame_name ?? parsed.default_frame_name ?? DEFAULT_SETTINGS.tri_frame_name,
+      default_wheel_name: parsed.tri_wheel_name ?? parsed.default_wheel_name ?? DEFAULT_SETTINGS.tri_wheel_name,
       draft_factor_2: factorSecond,
       draft_factor_3: Number(parsed.draft_factor_3 ?? factorOther),
       draft_factor_4: Number(parsed.draft_factor_4 ?? factorOther),

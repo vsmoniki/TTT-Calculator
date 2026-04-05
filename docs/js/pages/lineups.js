@@ -17,6 +17,9 @@ let state = {
   lineup: null,
   saving: new Set(),
   settings: {
+    tri_frame_name: 'CADEX tri',
+    tri_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
+    tron_frame_name: 'Zwift Concept Z1 (Tron)',
     default_frame_name: 'CADEX tri',
     default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
     equipment_preset: 'tri_dtswiss',
@@ -42,15 +45,15 @@ function findDefaultGearId(items, candidates) {
 }
 
 function findTronFrameId(frames) {
-  return findDefaultGearId(frames, TRON_FRAME_CANDIDATES);
+  return findDefaultGearId(frames, [state.settings.tron_frame_name, ...TRON_FRAME_CANDIDATES].filter(Boolean));
 }
 
 function defaultFrameCandidates() {
-  return [state.settings.default_frame_name, 'Cadex Tri', 'CADEX tri', 'Canyon Aeroad 2021'].filter(Boolean);
+  return [state.settings.tri_frame_name, state.settings.default_frame_name, 'Cadex Tri', 'CADEX tri', 'Canyon Aeroad 2021'].filter(Boolean);
 }
 
 function defaultWheelCandidates() {
-  return [state.settings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'].filter(Boolean);
+  return [state.settings.tri_wheel_name, state.settings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'].filter(Boolean);
 }
 
 function isTriEnabled() {
@@ -68,17 +71,20 @@ function getSelectableEquipments() {
   const equipments = [];
 
   if (isTriEnabled() && defaultFrameId && defaultWheelId) {
+    const triFrame = state.frames.find((f) => f.id === defaultFrameId);
+    const triWheel = state.wheels.find((w) => w.id === defaultWheelId);
     equipments.push({
       key: 'cadex_dt85',
-      label: 'Cadex Tri × DT Swiss ARC 1100 DICUT 85/Disc',
+      label: `${triFrame?.name ?? 'Tri frame'} × ${triWheel?.name ?? 'Tri wheel'}`,
       frame_id: defaultFrameId,
       wheel_id: defaultWheelId,
     });
   }
   if (isTronEnabled() && tronFrameId) {
+    const tronFrame = state.frames.find((f) => f.id === tronFrameId);
     equipments.push({
       key: 'tron',
-      label: 'Zwift Concept Z1 (Tron)',
+      label: tronFrame?.name ?? 'Tron',
       frame_id: tronFrameId,
       wheel_id: null,
     });

@@ -200,6 +200,9 @@ export interface UpdateSettingsBody {
   equipment_preset?: 'tri_dtswiss' | 'tron';
   equipment_status_tri_dtswiss?: 'enabled' | 'disabled';
   equipment_status_tron?: 'enabled' | 'disabled';
+  tri_frame_name?: string;
+  tri_wheel_name?: string;
+  tron_frame_name?: string;
   default_frame_flat_delta_sec?: number;
   default_wheel_flat_delta_sec?: number;
 }

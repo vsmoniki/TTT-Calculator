@@ -28,6 +28,9 @@ const DEFAULT_SETTINGS = {
   equipment_preset: 'tri_dtswiss',
   equipment_status_tri_dtswiss: 'enabled',
   equipment_status_tron: 'enabled',
+  tri_frame_name: 'CADEX tri',
+  tri_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
+  tron_frame_name: 'Zwift Concept Z1 (Tron)',
   default_frame_flat_delta_sec: 0,
   default_wheel_flat_delta_sec: 0,
 };
@@ -244,7 +247,7 @@ function findDefaultGearId(items, candidates) {
 }
 
 function findTronFrameId(frames) {
-  return findDefaultGearId(frames, TRON_FRAME_CANDIDATES);
+  return findDefaultGearId(frames, [state.settings.tron_frame_name, ...TRON_FRAME_CANDIDATES].filter(Boolean));
 }
 
 function isTriEnabled() {
@@ -268,8 +271,12 @@ function getInitialEquipmentSelection() {
 
 function getSelectableFrames() {
   const tronId = findTronFrameId(state.frames);
+  const triFrameId = findDefaultGearId(
+    state.frames,
+    [state.settings.tri_frame_name, state.settings.default_frame_name, 'Cadex Tri', 'CADEX tri', 'Canyon Aeroad 2021'].filter(Boolean),
+  );
   const allowed = new Set([
-    isTriEnabled() ? state.defaultFrameId : null,
+    isTriEnabled() ? (triFrameId || state.defaultFrameId) : null,
     isTronEnabled() ? tronId : null,
   ].filter(Boolean));
   return state.frames.filter((f) => allowed.has(f.id));
@@ -277,8 +284,13 @@ function getSelectableFrames() {
 
 function getSelectableWheels() {
   if (!isTriEnabled()) return [];
-  if (!state.defaultWheelId) return [];
-  return state.wheels.filter((w) => w.id === state.defaultWheelId);
+  const triWheelId = findDefaultGearId(
+    state.wheels,
+    [state.settings.tri_wheel_name, state.settings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'].filter(Boolean),
+  );
+  const wheelId = triWheelId || state.defaultWheelId;
+  if (!wheelId) return [];
+  return state.wheels.filter((w) => w.id === wheelId);
 }
 
 function isTronFrame(frameId) {
@@ -293,8 +305,8 @@ function isTronFrame(frameId) {
 export async function renderMain(container) {
   const [riders, frames, wheels, settings] = await Promise.all([fetchRiders(), fetchFrames(), fetchWheels(), fetchSettings()]);
   const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
-  const defaultFrameCandidates = [mergedSettings.default_frame_name, 'Cadex Tri', 'Canyon Aeroad 2021'];
-  const defaultWheelCandidates = [mergedSettings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
+  const defaultFrameCandidates = [mergedSettings.tri_frame_name, mergedSettings.default_frame_name, 'Cadex Tri', 'Canyon Aeroad 2021'];
+  const defaultWheelCandidates = [mergedSettings.tri_wheel_name, mergedSettings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
   const defaultFrameId = findDefaultGearId(frames, defaultFrameCandidates);
   const defaultWheelId = findDefaultGearId(wheels, defaultWheelCandidates);
   state = { ...state, riders, frames, wheels, members: [], defaultFrameId, defaultWheelId, settings: mergedSettings, draftFactors: buildDraftFactors(mergedSettings) }; 

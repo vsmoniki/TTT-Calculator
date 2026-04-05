@@ -1,4 +1,4 @@
-import { fetchSettings, updateSettings } from '../api.js';
+import { fetchSettings, updateSettings, fetchFrames, fetchWheels } from '../api.js';
 
 const DEFAULT_SETTINGS = {
   draft_factor_2: 0.8,
@@ -16,10 +16,16 @@ const DEFAULT_SETTINGS = {
   equipment_preset: 'tri_dtswiss',
   equipment_status_tri_dtswiss: 'enabled',
   equipment_status_tron: 'enabled',
+  tri_frame_name: 'CADEX tri',
+  tri_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
+  tron_frame_name: 'Zwift Concept Z1 (Tron)',
+  default_frame_flat_delta_sec: 0,
+  default_wheel_flat_delta_sec: 0,
 };
 
 export async function renderAdmin(container) {
-  const settings = { ...DEFAULT_SETTINGS, ...(await fetchSettings()) };
+  const [rawSettings, frames, wheels] = await Promise.all([fetchSettings(), fetchFrames(), fetchWheels()]);
+  const settings = { ...DEFAULT_SETTINGS, ...rawSettings };
 
   container.innerHTML = `
     <div class="page-header">
@@ -80,6 +86,36 @@ export async function renderAdmin(container) {
       </div>
 
       <div class="card">
+        <div class="card-title">機材プリセット詳細</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Triセット: フレーム</label>
+            <select id="s-tri-frame">
+              ${buildGearOptions(frames, settings.tri_frame_name || settings.default_frame_name)}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Triセット: ホイール</label>
+            <select id="s-tri-wheel">
+              ${buildGearOptions(wheels, settings.tri_wheel_name || settings.default_wheel_name)}
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tronセット: フレーム</label>
+            <select id="s-tron-frame">
+              ${buildGearOptions(frames, settings.tron_frame_name)}
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Triセット フレーム平坦Δ(sec)</label><input type="number" step="1" id="s-tri-frame-flat" value="${settings.default_frame_flat_delta_sec}" /></div>
+          <div class="form-group"><label>Triセット ホイール平坦Δ(sec)</label><input type="number" step="1" id="s-tri-wheel-flat" value="${settings.default_wheel_flat_delta_sec}" /></div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">機材シミュレーション補正</div>
         <div class="form-row">
           <div class="form-group"><label>CdA較正倍率</label><input type="number" step="0.01" id="s-cda-cal" value="${settings.cda_calibration_multiplier}" /></div>
@@ -122,9 +158,9 @@ export async function renderAdmin(container) {
     const triStatus = container.querySelector('#s-gear-status-tri')?.value === 'disabled' ? 'disabled' : 'enabled';
     const tronStatus = container.querySelector('#s-gear-status-tron')?.value === 'disabled' ? 'disabled' : 'enabled';
     const equipmentPreset = triStatus === 'disabled' && tronStatus === 'enabled' ? 'tron' : 'tri_dtswiss';
-    const presetDefaults = equipmentPreset === 'tron'
-      ? { default_frame_name: 'Zwift Concept Z1 (Tron)', default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc' }
-      : { default_frame_name: 'CADEX tri', default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc' };
+    const triFrameName = valText(container, '#s-tri-frame');
+    const triWheelName = valText(container, '#s-tri-wheel');
+    const tronFrameName = valText(container, '#s-tron-frame');
     const payload = {
       draft_factor_2: valNum(container, '#s-draft2'),
       draft_factor_3: valNum(container, '#s-draft3'),
@@ -141,7 +177,13 @@ export async function renderAdmin(container) {
       equipment_preset: equipmentPreset,
       equipment_status_tri_dtswiss: triStatus,
       equipment_status_tron: tronStatus,
-      ...presetDefaults,
+      default_frame_name: triFrameName,
+      default_wheel_name: triWheelName,
+      tri_frame_name: triFrameName,
+      tri_wheel_name: triWheelName,
+      tron_frame_name: tronFrameName,
+      default_frame_flat_delta_sec: valNum(container, '#s-tri-frame-flat'),
+      default_wheel_flat_delta_sec: valNum(container, '#s-tri-wheel-flat'),
     };
 
     const msg = container.querySelector('#s-msg');
@@ -181,6 +223,11 @@ function renderWithSettings(container, settings) {
       default_height_m: '#s-height',
       equipment_status_tri_dtswiss: '#s-gear-status-tri',
       equipment_status_tron: '#s-gear-status-tron',
+      tri_frame_name: '#s-tri-frame',
+      tri_wheel_name: '#s-tri-wheel',
+      tron_frame_name: '#s-tron-frame',
+      default_frame_flat_delta_sec: '#s-tri-frame-flat',
+      default_wheel_flat_delta_sec: '#s-tri-wheel-flat',
     };
     const selector = map[key];
     if (!selector) return;
@@ -193,4 +240,19 @@ function valNum(container, selector) {
   const raw = container.querySelector(selector)?.value;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function valText(container, selector) {
+  return String(container.querySelector(selector)?.value ?? '').trim();
+}
+
+function buildGearOptions(items, selectedName) {
+  return items.map((item) => (
+    `<option value="${esc(item.name)}" ${item.name === selectedName ? 'selected' : ''}>${esc(item.name)}</option>`
+  )).join('');
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g, '&quot;');
 }
