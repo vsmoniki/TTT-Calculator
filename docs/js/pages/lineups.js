@@ -53,21 +53,13 @@ function defaultWheelCandidates() {
   return [state.settings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'].filter(Boolean);
 }
 
-function isTriEnabled() {
-  return state.settings.equipment_status_tri_dtswiss !== 'disabled';
-}
-
-function isTronEnabled() {
-  return state.settings.equipment_status_tron !== 'disabled';
-}
-
 function getSelectableEquipments() {
   const defaultFrameId = findDefaultGearId(state.frames, defaultFrameCandidates());
   const defaultWheelId = findDefaultGearId(state.wheels, defaultWheelCandidates());
   const tronFrameId = findTronFrameId(state.frames);
   const equipments = [];
 
-  if (isTriEnabled() && defaultFrameId && defaultWheelId) {
+  if (defaultFrameId && defaultWheelId) {
     equipments.push({
       key: 'cadex_dt85',
       label: 'Cadex Tri × DT Swiss ARC 1100 DICUT 85/Disc',
@@ -75,7 +67,7 @@ function getSelectableEquipments() {
       wheel_id: defaultWheelId,
     });
   }
-  if (isTronEnabled() && tronFrameId) {
+  if (tronFrameId) {
     equipments.push({
       key: 'tron',
       label: 'Zwift Concept Z1 (Tron)',
@@ -338,17 +330,13 @@ function bindDetailEvents(container) {
     } else {
       const usedOrders = new Set((state.lineup.members ?? []).map((m) => m.order_index));
       const nextOrder  = [1,2,3,4,5,6,7,8].find((n) => !usedOrders.has(n)) ?? 1;
-      const defaultFrameId = findDefaultGearId(state.frames, defaultFrameCandidates());
-      const defaultWheelId = findDefaultGearId(state.wheels, defaultWheelCandidates());
-      const tronFrameId = findTronFrameId(state.frames);
-      const initialFrameId = isTriEnabled() ? defaultFrameId : (isTronEnabled() ? tronFrameId : null);
-      const initialWheelId = isTriEnabled() ? defaultWheelId : null;
+      const firstEquipment = getSelectableEquipments()[0];
       try {
         await addLineupMember(state.lineupId, {
           rider_id: riderId,
           order_index: nextOrder,
-          frame_id: initialFrameId,
-          wheel_id: initialWheelId,
+          frame_id: firstEquipment?.frame_id ?? null,
+          wheel_id: firstEquipment?.wheel_id ?? null,
         });
         await renderDetail(container);
       } catch (e) { alert(e.message ?? 'エラーが発生しました'); }

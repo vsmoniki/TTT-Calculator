@@ -247,43 +247,35 @@ function findTronFrameId(frames) {
   return findDefaultGearId(frames, TRON_FRAME_CANDIDATES);
 }
 
-function isTriEnabled() {
-  return state.settings.equipment_status_tri_dtswiss !== 'disabled';
-}
-
-function isTronEnabled() {
-  return state.settings.equipment_status_tron !== 'disabled';
+function getSelectableEquipments() {
+  const tronFrameId = findTronFrameId(state.frames);
+  const equipments = [];
+  if (state.defaultFrameId && state.defaultWheelId) {
+    equipments.push({
+      key: 'cadex_dt85',
+      label: 'Cadex Tri × DT Swiss ARC 1100 DICUT 85/Disc',
+      frameId: state.defaultFrameId,
+      wheelId: state.defaultWheelId,
+    });
+  }
+  if (tronFrameId) {
+    equipments.push({
+      key: 'tron',
+      label: 'Zwift Concept Z1 (Tron)',
+      frameId: tronFrameId,
+      wheelId: null,
+    });
+  }
+  return equipments;
 }
 
 function getInitialEquipmentSelection() {
-  const tronFrameId = findTronFrameId(state.frames);
-  if (isTriEnabled() && state.defaultFrameId) {
-    return { frameId: state.defaultFrameId, wheelId: state.defaultWheelId };
-  }
-  if (isTronEnabled() && tronFrameId) {
-    return { frameId: tronFrameId, wheelId: null };
+  const selectableEquipments = getSelectableEquipments();
+  const firstEquipment = selectableEquipments[0];
+  if (firstEquipment) {
+    return { frameId: firstEquipment.frameId, wheelId: firstEquipment.wheelId };
   }
   return { frameId: null, wheelId: null };
-}
-
-function getSelectableFrames() {
-  const tronId = findTronFrameId(state.frames);
-  const allowed = new Set([
-    isTriEnabled() ? state.defaultFrameId : null,
-    isTronEnabled() ? tronId : null,
-  ].filter(Boolean));
-  return state.frames.filter((f) => allowed.has(f.id));
-}
-
-function getSelectableWheels() {
-  if (!isTriEnabled()) return [];
-  if (!state.defaultWheelId) return [];
-  return state.wheels.filter((w) => w.id === state.defaultWheelId);
-}
-
-function isTronFrame(frameId) {
-  const tronId = findTronFrameId(state.frames);
-  return !!tronId && frameId === tronId;
 }
 
 // ============================================================
@@ -390,9 +382,8 @@ function render(container) {
 // ============================================================
 
 function renderMemberCard(m, idx, total) {
-  const selectableFrames = getSelectableFrames();
-  const selectableWheels = getSelectableWheels();
-  const tronSelected = isTronFrame(m.frameId);
+  const selectableEquipments = getSelectableEquipments();
+  const selectedEquipment = selectableEquipments.find((eq) => eq.frameId === m.frameId && eq.wheelId === (m.wheelId ?? null));
   return `
     <div class="member-card" id="m-mcard-${m.rider.id}" draggable="true" data-rider-id="${m.rider.id}"
          style="cursor:grab">
@@ -412,17 +403,10 @@ function renderMemberCard(m, idx, total) {
       </div>
       <div class="member-card-gear">
         <div class="form-group" style="margin:0">
-          <label>フレーム</label>
-          <select id="m-frame-${m.rider.id}" onchange="mainUpdateGear(${m.rider.id})">
+          <label>機材</label>
+          <select id="m-equipment-${m.rider.id}" onchange="mainUpdateGear(${m.rider.id})">
             <option value="">— なし —</option>
-            ${selectableFrames.map((f)=>`<option value="${f.id}" ${f.id===m.frameId?'selected':''}>${esc(f.name)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group" style="margin:0">
-          <label>ホイール</label>
-          <select id="m-wheel-${m.rider.id}" onchange="mainUpdateGear(${m.rider.id})" ${tronSelected ? 'disabled' : ''}>
-            <option value="">— なし —</option>
-            ${selectableWheels.map((w)=>`<option value="${w.id}" ${w.id===m.wheelId?'selected':''}>${esc(w.name)}</option>`).join('')}
+            ${selectableEquipments.map((eq)=>`<option value="${eq.key}" ${eq.key===selectedEquipment?.key?'selected':''}>${esc(eq.label)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group" style="margin:0">
@@ -563,13 +547,12 @@ function bindEvents(container) {
   };
 
   window.mainUpdateGear = (riderId) => {
-    const fv = document.getElementById(`m-frame-${riderId}`)?.value;
-    const wv = document.getElementById(`m-wheel-${riderId}`)?.value;
+    const equipmentKey = document.getElementById(`m-equipment-${riderId}`)?.value;
+    const selectedEquipment = getSelectableEquipments().find((eq) => eq.key === equipmentKey);
     const member = state.members.find((m) => m.rider.id === riderId);
     if (member) {
-      member.frameId = fv ? parseInt(fv) : null;
-      member.wheelId = wv ? parseInt(wv) : null;
-      if (isTronFrame(member.frameId)) member.wheelId = null;
+      member.frameId = selectedEquipment?.frameId ?? null;
+      member.wheelId = selectedEquipment?.wheelId ?? null;
       const containerEl = document.getElementById('content');
       if (containerEl) render(containerEl); else refreshResults();
     }
