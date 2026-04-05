@@ -57,8 +57,8 @@ interface MemberWithDetails {
 }
 
 function getRiderHeightM(member: MemberWithDetails): number {
-  if (!member.height_cm || member.height_cm <= 0) return DEFAULT_HEIGHT_M;
-  return member.height_cm / 100;
+  const heightCm = member.height_cm ?? 0;
+  return (heightCm > 0 ? heightCm : DEFAULT_HEIGHT_M * 100) / 100;
 }
 
 function isTtBike(member: MemberWithDetails): boolean {
@@ -68,12 +68,10 @@ function isTtBike(member: MemberWithDetails): boolean {
 function calcFrontalArea(member: MemberWithDetails): number {
   const h = getRiderHeightM(member);
   const m = member.weight_kg;
-
-  if (isTtBike(member)) {
-    return 0.0293 * Math.pow(h, 0.725) * Math.pow(m, 0.425) + 0.0604;
-  }
-
-  return 0.0276 * Math.pow(h, 0.725) * Math.pow(m, 0.425) + 0.1647;
+  const { coeff, offset } = isTtBike(member)
+    ? { coeff: 0.0293, offset: 0.0604 }
+    : { coeff: 0.0276, offset: 0.1647 };
+  return coeff * Math.pow(h, 0.725) * Math.pow(m, 0.425) + offset;
 }
 
 function calcBaseCdA(member: MemberWithDetails): number {
@@ -94,19 +92,20 @@ function calcDraftMultiplier(
   draftFactorSecond: number,
   draftFactorOther: number
 ): number {
-  if (isTtBike(member)) return 1.0;
-  if (member.order_index === 1) return 1.0;
-  if (member.order_index === 2) return draftFactorSecond;
-  return draftFactorOther;
+  const orderDraftMultiplier: Record<number, number> = {
+    1: 1.0,
+    2: draftFactorSecond,
+  };
+  return isTtBike(member) ? 1.0 : (orderDraftMultiplier[member.order_index] ?? draftFactorOther);
 }
 
 function calcAverageGradeRatio(route: Record<string, unknown>): number {
   const distanceKm = Number(route.distance_km);
   const elevationM = Number(route.elevation_m);
-  if (!Number.isFinite(distanceKm) || distanceKm <= 0) return 0;
-  if (!Number.isFinite(elevationM) || elevationM <= 0) return 0;
+  const hasValidDistance = Number.isFinite(distanceKm) && distanceKm > 0;
+  const hasValidElevation = Number.isFinite(elevationM) && elevationM > 0;
   // 総獲得標高から代表勾配を作る（下り情報は未保持のため正側のみ）
-  return elevationM / (distanceKm * 1000);
+  return hasValidDistance && hasValidElevation ? elevationM / (distanceKm * 1000) : 0;
 }
 
 export async function simulate(request: Request, env: Env): Promise<Response> {
