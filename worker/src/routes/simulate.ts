@@ -38,11 +38,11 @@ const G = 9.80665;
 const ROAD_CD = 0.63;
 const TT_CD = 0.55;
 // ZwifterBikes の Tempus Fugit(1 lap) 実測タイムからの較正係数
-// 条件: 280W / 56kg / 177cm / Cadex Tri + ARC1100 85/Disc / 25:57
+// 条件: 280W / 56kg / 177cm / Cadex Tri + ARC1100 85/Disc / 25:58
 // MVPモデルは単純化のため絶対値がズレるので、CdA倍率で補正する
 const CDA_CALIBRATION_MULTIPLIER = 0.76;
 // 機材 flat_delta_sec を CdA へ換算する際の基準時間 [sec]
-const EQUIPMENT_REFERENCE_TIME_SEC = 1557; // 25:57
+const EQUIPMENT_REFERENCE_TIME_SEC = 1558; // 25:58
 const EQUIPMENT_CDA_SENSITIVITY = 3; // ΔCdA/CdA ≒ 3 * Δt/t（平坦近似）
 // ドラフト CdA 係数（後続）
 const DEFAULT_DRAFT_CDA_MULTIPLIER = 0.715;
