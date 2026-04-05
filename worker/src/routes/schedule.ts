@@ -22,6 +22,20 @@ interface FetchAttemptError {
   message: string;
 }
 
+const DATE_HEAD_PATTERN = String.raw`(?:\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s+\d{4}|\d{1,2}\s+[A-Za-z]{3,}(?:\s+\d{4})?|[A-Za-z]{3,}\s+\d{1,2}(?:,?\s+\d{4})?|\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)`;
+
+function stripTagsAndDecode(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, '\'')
+    .replace(/&ndash;|&mdash;/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function parseUpcomingSpecials(html: string): ScheduleSpecial[] {
   const anchors = [
     'Upcoming WTRL TTT Specials',
@@ -44,18 +58,14 @@ function parseUpcomingSpecials(html: string): ScheduleSpecial[] {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, '\'')
-      .replace(/\s+/g, ' ')
-      .trim())
+    .map(stripTagsAndDecode)
     .filter(Boolean);
 
   const results: ScheduleSpecial[] = [];
-  const pattern = /^((?:\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})|(?:[A-Za-z]+\s+\d{1,2}(?:,)?\s+\d{4})|(?:\d{4}-\d{2}-\d{2}))\s*[-–—:]\s*(.+)$/i;
+  const pattern = new RegExp(
+    String.raw`^(${DATE_HEAD_PATTERN})\s*(?:[-–—:|]|(?:\s{2,}))\s*(.+)$`,
+    'i'
+  );
 
   const seen = new Set<string>();
 
@@ -79,13 +89,9 @@ function parseUpcomingSpecials(html: string): ScheduleSpecial[] {
 
   // 行単位で拾えなかったケース向け: 1行に複数イベントが入る場合のフォールバック
   if (results.length === 0) {
-    const plain = preNormalized
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const plain = stripTagsAndDecode(preNormalized);
     const globalPattern = new RegExp(
-      String.raw`((?:\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})|(?:[A-Za-z]+\s+\d{1,2}(?:,)?\s+\d{4})|(?:\d{4}-\d{2}-\d{2}))\s*[-–—:]\s*([^<]{3,120}?)(?=(?:\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})|(?:[A-Za-z]+\s+\d{1,2}(?:,)?\s+\d{4})|(?:\d{4}-\d{2}-\d{2})|$)`,
+      String.raw`(${DATE_HEAD_PATTERN})\s*(?:[-–—:|]|(?:\s{2,}))\s*(.{3,120}?)(?=(?:${DATE_HEAD_PATTERN})|$)`,
       'gi'
     );
     let matched: RegExpExecArray | null;
@@ -136,6 +142,7 @@ export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Res
     try {
       const { html, fetchedFrom } = await fetchScheduleHtml(candidateUrl);
       const specials = parseUpcomingSpecials(html);
+      const excerpt = stripTagsAndDecode(html).slice(0, 500);
 
       return ok({
         source_url: WTRL_TTT_PUBLIC_URL,
@@ -152,6 +159,10 @@ export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Res
             {
               candidate_url: fetchedFrom,
               message: 'ページ取得は成功しましたが、パーサーが日付-イベント形式の行を検出できませんでした。',
+            },
+            {
+              candidate_url: fetchedFrom,
+              message: `先頭プレビュー: ${excerpt || '(空文字)'}${excerpt.length >= 500 ? '…' : ''}`,
             },
           ],
       });

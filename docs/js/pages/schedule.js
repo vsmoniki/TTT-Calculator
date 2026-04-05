@@ -65,7 +65,7 @@ function renderDiagnostics(data) {
 
   const detailsHtml = details.length > 0
     ? `
-      <details class="mt-8">
+      <details class="mt-8" open>
         <summary>取得エラーの詳細</summary>
         <ul class="mt-8">
           ${details.map((entry) => `
@@ -74,7 +74,7 @@ function renderDiagnostics(data) {
         </ul>
       </details>
     `
-    : '';
+    : '<p class="mt-8 text-sm">詳細情報はレスポンスに含まれていませんでした。</p>';
 
   const supportHtml = supportRequest.length > 0
     ? `
