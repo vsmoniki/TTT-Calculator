@@ -23,13 +23,8 @@ async function refresh() {
 
 function render() {
   _container.innerHTML = `
-    <div class="page-header">
-      <h2 class="page-title">メンバー</h2>
-    </div>
-
     <!-- ライダー登録 -->
     <div class="section">
-      <div class="section-title">メンバー登録</div>
       <button class="btn btn-primary" id="rider-open-form" ${_isCreateFormOpen ? 'style="display:none"' : ''}>メンバー登録</button>
       <div class="card mt-12" id="rider-create-form" ${_isCreateFormOpen ? '' : 'style="display:none"'}>
         <div class="form-row">
