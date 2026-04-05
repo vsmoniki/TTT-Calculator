@@ -2,6 +2,15 @@ import { fetchWtrlSchedule } from '../api.js';
 
 const REFRESH_MS = 10 * 60 * 1000;
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatDateTime(iso) {
   if (!iso) return '---';
   const dt = new Date(iso);
@@ -45,6 +54,44 @@ function renderSpecials(list) {
   `;
 }
 
+function renderDiagnostics(data) {
+  if (!data?.fetch_error) return '';
+
+  const details = Array.isArray(data.fetch_error_details) ? data.fetch_error_details : [];
+  const supportRequest = Array.isArray(data.support_request) ? data.support_request : [];
+
+  const detailsHtml = details.length > 0
+    ? `
+      <details class="mt-8">
+        <summary>取得エラーの詳細</summary>
+        <ul class="mt-8">
+          ${details.map((entry) => `
+            <li><code>${escapeHtml(entry.candidate_url ?? '-')}</code>: ${escapeHtml(entry.message ?? '-')}</li>
+          `).join('')}
+        </ul>
+      </details>
+    `
+    : '';
+
+  const supportHtml = supportRequest.length > 0
+    ? `
+      <details class="mt-8">
+        <summary>共有してほしい情報（調査用）</summary>
+        <ul class="mt-8">
+          ${supportRequest.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+        </ul>
+      </details>
+    `
+    : '';
+
+  return `
+    <p>公式サイトからの取得に失敗したため、代替表示中です。</p>
+    <p class="mt-8"><strong>エラー:</strong> ${escapeHtml(data.fetch_error)}</p>
+    ${detailsHtml}
+    ${supportHtml}
+  `;
+}
+
 export async function renderSchedule(container) {
   container.innerHTML = `
     <section class="page-header">
@@ -85,7 +132,7 @@ export async function renderSchedule(container) {
 
       if (data.fetch_error) {
         errorEl.hidden = false;
-        errorEl.textContent = `公式サイトからの取得に失敗したため、代替表示中です: ${data.fetch_error}`;
+        errorEl.innerHTML = renderDiagnostics(data);
       }
     } catch (err) {
       errorEl.hidden = false;

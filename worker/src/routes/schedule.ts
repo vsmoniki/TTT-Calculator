@@ -17,6 +17,11 @@ interface FetchAttemptResult {
   fetchedFrom: string;
 }
 
+interface FetchAttemptError {
+  candidate_url: string;
+  message: string;
+}
+
 function parseUpcomingSpecials(html: string): ScheduleSpecial[] {
   const anchors = [
     'Upcoming WTRL TTT Specials',
@@ -120,7 +125,7 @@ async function fetchScheduleHtml(url: string): Promise<FetchAttemptResult> {
 }
 
 export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Response> {
-  const errors: string[] = [];
+  const errors: FetchAttemptError[] = [];
   const candidateUrls = [
     WTRL_TTT_URL,
     WTRL_TTT_PUBLIC_URL,
@@ -142,10 +147,15 @@ export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Res
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      errors.push(`${candidateUrl}: ${message}`);
+      errors.push({
+        candidate_url: candidateUrl,
+        message,
+      });
       console.error('WTRL schedule fetch attempt failed', candidateUrl, err);
     }
   }
+
+  const fetchError = `WTRL schedule fetch failed (${errors.map((entry) => `${entry.candidate_url}: ${entry.message}`).join(' | ')})`;
 
   return ok({
     source_url: WTRL_TTT_PUBLIC_URL,
@@ -153,6 +163,13 @@ export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Res
     fetched_at: new Date().toISOString(),
     specials: [],
     has_data: false,
-    fetch_error: `WTRL schedule fetch failed (${errors.join(' | ')})`,
+    fetch_error: fetchError,
+    fetch_error_details: errors,
+    support_request: [
+      '手動更新を押した時刻（タイムゾーン付き）',
+      '表示されているエラーメッセージ全文',
+      '利用しているブラウザ名とバージョン',
+      '必要ならDevToolsのNetworkタブで /schedule/wtrl-ttt のレスポンス内容',
+    ],
   });
 }
