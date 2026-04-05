@@ -32,6 +32,8 @@ const DEFAULT_SETTINGS = {
   default_wheel_flat_delta_sec: 0,
 };
 const TRON_FRAME_CANDIDATES = ['Zwift Concept Z1 (Tron)', 'Tron'];
+const CADEX_FRAME_CANDIDATES = ['Cadex Tri', 'CADEX tri'];
+const DT85_WHEEL_CANDIDATES = ['DT Swiss ARC 1100 DICUT 85/Disc', 'DTSwiss ARC 1100 DICUT 85/Disc'];
 const ROTATION_CYCLE_SEC = 120; // Auto Optimize のベース回転時間 (秒)
 
 let state = {
@@ -248,14 +250,16 @@ function findTronFrameId(frames) {
 }
 
 function getSelectableEquipments() {
+  const cadexFrameId = findDefaultGearId(state.frames, CADEX_FRAME_CANDIDATES);
+  const dt85WheelId = findDefaultGearId(state.wheels, DT85_WHEEL_CANDIDATES);
   const tronFrameId = findTronFrameId(state.frames);
   const equipments = [];
-  if (state.defaultFrameId && state.defaultWheelId) {
+  if (cadexFrameId && dt85WheelId) {
     equipments.push({
       key: 'cadex_dt85',
       label: 'Cadex Tri × DT Swiss ARC 1100 DICUT 85/Disc',
-      frameId: state.defaultFrameId,
-      wheelId: state.defaultWheelId,
+      frameId: cadexFrameId,
+      wheelId: dt85WheelId,
     });
   }
   if (tronFrameId) {
@@ -405,7 +409,6 @@ function renderMemberCard(m, idx, total) {
         <div class="form-group" style="margin:0">
           <label>機材</label>
           <select id="m-equipment-${m.rider.id}" onchange="mainUpdateGear(${m.rider.id})">
-            <option value="">— なし —</option>
             ${selectableEquipments.map((eq)=>`<option value="${eq.key}" ${eq.key===selectedEquipment?.key?'selected':''}>${esc(eq.label)}</option>`).join('')}
           </select>
         </div>
