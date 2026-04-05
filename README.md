@@ -221,7 +221,7 @@ A_road = 0.0276 * h^0.725 * m^0.425 + 0.1647
 A_tt   = 0.0293 * h^0.725 * m^0.425 + 0.0604
 
 機材補正（flat_delta_sec / aero_score から推定）:
-CdA_multiplier = 1 + 3 * (flat_delta_sec_total / 1558)
+CdA_multiplier = 1 + 3 * (flat_delta_sec_total / 1557)
 CdA_effective  = CdA * clamp(0.7, 1.3, CdA_multiplier)
 
 flat_delta_sec_total は frame + wheel の平坦タイム差（秒）を合算
