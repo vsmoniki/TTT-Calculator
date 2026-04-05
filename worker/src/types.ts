@@ -163,7 +163,8 @@ export interface UpdateLineupMemberBody {
 export interface SimulateBody {
   route_id: number;
   lineup_id: number;
-  target_speed_kph: number;
+  target_speed_kph?: number;
+  target_time_sec?: number;
   draft_factor_second?: number;
   draft_factor_other?: number;
 }
