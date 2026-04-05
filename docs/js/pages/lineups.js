@@ -20,6 +20,8 @@ let state = {
     default_frame_name: 'CADEX tri',
     default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
     equipment_preset: 'tri_dtswiss',
+    equipment_status_tri_dtswiss: 'enabled',
+    equipment_status_tron: 'enabled',
   },
 };
 const TRON_FRAME_CANDIDATES = ['Zwift Concept Z1 (Tron)', 'Tron'];
@@ -51,13 +53,21 @@ function defaultWheelCandidates() {
   return [state.settings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'].filter(Boolean);
 }
 
+function isTriEnabled() {
+  return state.settings.equipment_status_tri_dtswiss !== 'disabled';
+}
+
+function isTronEnabled() {
+  return state.settings.equipment_status_tron !== 'disabled';
+}
+
 function getSelectableEquipments() {
   const defaultFrameId = findDefaultGearId(state.frames, defaultFrameCandidates());
   const defaultWheelId = findDefaultGearId(state.wheels, defaultWheelCandidates());
   const tronFrameId = findTronFrameId(state.frames);
   const equipments = [];
 
-  if (defaultFrameId && defaultWheelId) {
+  if (isTriEnabled() && defaultFrameId && defaultWheelId) {
     equipments.push({
       key: 'cadex_dt85',
       label: 'Cadex Tri × DT Swiss ARC 1100 DICUT 85/Disc',
@@ -65,7 +75,7 @@ function getSelectableEquipments() {
       wheel_id: defaultWheelId,
     });
   }
-  if (tronFrameId) {
+  if (isTronEnabled() && tronFrameId) {
     equipments.push({
       key: 'tron',
       label: 'Zwift Concept Z1 (Tron)',
@@ -330,13 +340,15 @@ function bindDetailEvents(container) {
       const nextOrder  = [1,2,3,4,5,6,7,8].find((n) => !usedOrders.has(n)) ?? 1;
       const defaultFrameId = findDefaultGearId(state.frames, defaultFrameCandidates());
       const defaultWheelId = findDefaultGearId(state.wheels, defaultWheelCandidates());
-      const isTronPreset = state.settings.equipment_preset === 'tron';
+      const tronFrameId = findTronFrameId(state.frames);
+      const initialFrameId = isTriEnabled() ? defaultFrameId : (isTronEnabled() ? tronFrameId : null);
+      const initialWheelId = isTriEnabled() ? defaultWheelId : null;
       try {
         await addLineupMember(state.lineupId, {
           rider_id: riderId,
           order_index: nextOrder,
-          frame_id: isTronPreset ? findTronFrameId(state.frames) : defaultFrameId,
-          wheel_id: isTronPreset ? null : defaultWheelId,
+          frame_id: initialFrameId,
+          wheel_id: initialWheelId,
         });
         await renderDetail(container);
       } catch (e) { alert(e.message ?? 'エラーが発生しました'); }
