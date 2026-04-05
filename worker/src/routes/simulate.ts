@@ -9,8 +9,13 @@ const G = 9.80665;
 const AERO_BASE = 5;
 
 const DEFAULT_SETTINGS = {
-  draft_factor_second: 0.8,
-  draft_factor_other: 0.75,
+  draft_factor_2: 0.8,
+  draft_factor_3: 0.75,
+  draft_factor_4: 0.75,
+  draft_factor_5: 0.75,
+  draft_factor_6: 0.75,
+  draft_factor_7: 0.75,
+  draft_factor_8: 0.75,
   bike_kg: 8,
   rho: 1.225,
   crr: 0.004,
@@ -44,8 +49,23 @@ async function loadSettings(env: Env): Promise<SimulationSettings> {
   const row = await env.DB.prepare('SELECT settings_json FROM app_settings WHERE id = 1').first<AppSettingsRow>();
   if (!row?.settings_json) return { ...DEFAULT_SETTINGS };
   try {
-    const parsed = JSON.parse(row.settings_json) as Partial<SimulationSettings>;
-    return { ...DEFAULT_SETTINGS, ...parsed };
+    const parsed = JSON.parse(row.settings_json) as Partial<SimulationSettings> & {
+      draft_factor_second?: number;
+      draft_factor_other?: number;
+    };
+    const factorSecond = Number(parsed.draft_factor_2 ?? parsed.draft_factor_second ?? DEFAULT_SETTINGS.draft_factor_2);
+    const factorOther = Number(parsed.draft_factor_other ?? DEFAULT_SETTINGS.draft_factor_3);
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      draft_factor_2: factorSecond,
+      draft_factor_3: Number(parsed.draft_factor_3 ?? factorOther),
+      draft_factor_4: Number(parsed.draft_factor_4 ?? factorOther),
+      draft_factor_5: Number(parsed.draft_factor_5 ?? factorOther),
+      draft_factor_6: Number(parsed.draft_factor_6 ?? factorOther),
+      draft_factor_7: Number(parsed.draft_factor_7 ?? factorOther),
+      draft_factor_8: Number(parsed.draft_factor_8 ?? factorOther),
+    };
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -103,16 +123,12 @@ function calcRequiredPower(
   return pGravity + pRoll + pAero;
 }
 
-function calcDraftMultiplier(
-  member: MemberWithDetails,
-  draftFactorSecond: number,
-  draftFactorOther: number
-): number {
-  const orderDraftMultiplier: Record<number, number> = {
-    1: 1.0,
-    2: draftFactorSecond,
-  };
-  return isTtBike(member) ? 1.0 : (orderDraftMultiplier[member.order_index] ?? draftFactorOther);
+function calcDraftMultiplier(member: MemberWithDetails, settings: SimulationSettings): number {
+  if (isTtBike(member)) return 1.0;
+  if (member.order_index <= 1) return 1.0;
+  if (member.order_index >= 8) return settings.draft_factor_8;
+  const key = `draft_factor_${member.order_index}` as keyof SimulationSettings;
+  return Number(settings[key] ?? settings.draft_factor_8);
 }
 
 function calcAverageGradeRatio(route: Record<string, unknown>): number {
@@ -138,8 +154,6 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     lineup_id,
     target_speed_kph,
     target_time_sec,
-    draft_factor_second = settings.draft_factor_second,
-    draft_factor_other = settings.draft_factor_other,
   } = body;
 
   if (!route_id || typeof route_id !== 'number') return badRequest('route_id is required');
@@ -195,7 +209,7 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     const adjustedCdA = baseCdA * equipmentCdAMultiplier;
 
     const headW = calcRequiredPower(v, totalMassKg, gradeRatio, adjustedCdA, settings);
-    const draftCdA = adjustedCdA * calcDraftMultiplier(m, draft_factor_second, draft_factor_other);
+    const draftCdA = adjustedCdA * calcDraftMultiplier(m, settings);
     const draftW = calcRequiredPower(v, totalMassKg, gradeRatio, draftCdA, settings);
 
     return {
@@ -223,8 +237,13 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     target_speed_kph: Math.round(resolvedTargetSpeedKph * 100) / 100,
     target_time_sec: hasTime ? target_time_sec : null,
     grade_ratio: gradeRatio,
-    draft_factor_second,
-    draft_factor_other,
+    draft_factor_2: settings.draft_factor_2,
+    draft_factor_3: settings.draft_factor_3,
+    draft_factor_4: settings.draft_factor_4,
+    draft_factor_5: settings.draft_factor_5,
+    draft_factor_6: settings.draft_factor_6,
+    draft_factor_7: settings.draft_factor_7,
+    draft_factor_8: settings.draft_factor_8,
     settings,
     results,
     summary: {

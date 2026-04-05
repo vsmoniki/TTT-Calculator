@@ -2,8 +2,13 @@ import { Env, AppSettingsRow, UpdateSettingsBody } from '../types';
 import { badRequest, ok } from '../response';
 
 const DEFAULT_SETTINGS = {
-  draft_factor_second: 0.8,
-  draft_factor_other: 0.75,
+  draft_factor_2: 0.8,
+  draft_factor_3: 0.75,
+  draft_factor_4: 0.75,
+  draft_factor_5: 0.75,
+  draft_factor_6: 0.75,
+  draft_factor_7: 0.75,
+  draft_factor_8: 0.75,
   bike_kg: 8,
   rho: 1.225,
   crr: 0.004,
@@ -22,8 +27,13 @@ const DEFAULT_SETTINGS = {
 type Settings = typeof DEFAULT_SETTINGS;
 
 const NUMERIC_KEYS = [
-  'draft_factor_second',
-  'draft_factor_other',
+  'draft_factor_2',
+  'draft_factor_3',
+  'draft_factor_4',
+  'draft_factor_5',
+  'draft_factor_6',
+  'draft_factor_7',
+  'draft_factor_8',
   'bike_kg',
   'rho',
   'crr',
@@ -42,8 +52,25 @@ const STRING_KEYS = ['default_frame_name', 'default_wheel_name'] as const;
 function toSettings(row: AppSettingsRow | null): Settings {
   if (!row?.settings_json) return { ...DEFAULT_SETTINGS };
   try {
-    const parsed = JSON.parse(row.settings_json) as Partial<Settings>;
-    return { ...DEFAULT_SETTINGS, ...parsed };
+    const parsed = JSON.parse(row.settings_json) as Partial<Settings> & {
+      draft_factor_second?: number;
+      draft_factor_other?: number;
+    };
+
+    const factorSecond = Number(parsed.draft_factor_2 ?? parsed.draft_factor_second ?? DEFAULT_SETTINGS.draft_factor_2);
+    const factorOther = Number(parsed.draft_factor_other ?? DEFAULT_SETTINGS.draft_factor_3);
+
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      draft_factor_2: factorSecond,
+      draft_factor_3: Number(parsed.draft_factor_3 ?? factorOther),
+      draft_factor_4: Number(parsed.draft_factor_4 ?? factorOther),
+      draft_factor_5: Number(parsed.draft_factor_5 ?? factorOther),
+      draft_factor_6: Number(parsed.draft_factor_6 ?? factorOther),
+      draft_factor_7: Number(parsed.draft_factor_7 ?? factorOther),
+      draft_factor_8: Number(parsed.draft_factor_8 ?? factorOther),
+    };
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -51,7 +78,7 @@ function toSettings(row: AppSettingsRow | null): Settings {
 
 function validateNumericField(key: (typeof NUMERIC_KEYS)[number], value: unknown): string | null {
   if (typeof value !== 'number' || Number.isNaN(value)) return `${key} must be a number`;
-  if (key.startsWith('draft_factor') && (value <= 0 || value > 1.2)) return `${key} must be between 0 and 1.2`;
+  if (key.startsWith('draft_factor_') && (value <= 0 || value > 1.2)) return `${key} must be between 0 and 1.2`;
   if ((key === 'bike_kg' || key === 'rho' || key === 'road_cd' || key === 'tt_cd' || key === 'default_height_m') && value <= 0) {
     return `${key} must be positive`;
   }

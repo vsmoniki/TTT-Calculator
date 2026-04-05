@@ -12,8 +12,13 @@ INSERT INTO app_settings (id, settings_json)
 VALUES (
   1,
   json_object(
-    'draft_factor_second', 0.8,
-    'draft_factor_other', 0.75,
+    'draft_factor_2', 0.8,
+    'draft_factor_3', 0.75,
+    'draft_factor_4', 0.75,
+    'draft_factor_5', 0.75,
+    'draft_factor_6', 0.75,
+    'draft_factor_7', 0.75,
+    'draft_factor_8', 0.75,
     'bike_kg', 8,
     'rho', 1.225,
     'crr', 0.004,

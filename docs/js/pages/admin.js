@@ -1,8 +1,13 @@
 import { fetchSettings, updateSettings } from '../api.js';
 
 const DEFAULT_SETTINGS = {
-  draft_factor_second: 0.8,
-  draft_factor_other: 0.75,
+  draft_factor_2: 0.8,
+  draft_factor_3: 0.75,
+  draft_factor_4: 0.75,
+  draft_factor_5: 0.75,
+  draft_factor_6: 0.75,
+  draft_factor_7: 0.75,
+  draft_factor_8: 0.75,
   bike_kg: 8,
   rho: 1.225,
   crr: 0.004,
@@ -12,12 +17,7 @@ const DEFAULT_SETTINGS = {
   equipment_reference_time_sec: 1668,
   equipment_cda_sensitivity: 3,
   default_height_m: 1.75,
-  default_frame_name: 'CADEX tri',
-  default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
-  default_frame_flat_delta_sec: 0,
-  default_wheel_flat_delta_sec: 0,
 };
-
 
 export async function renderAdmin(container) {
   const settings = { ...DEFAULT_SETTINGS, ...(await fetchSettings()) };
@@ -25,23 +25,22 @@ export async function renderAdmin(container) {
   container.innerHTML = `
     <div class="page-header">
       <h2 class="page-title">管理</h2>
-      <span class="text-muted text-sm">デフォルト機材性能値・ドラフト係数・計算定数を編集</span>
+      <span class="text-muted text-sm">ドラフト係数・計算定数を編集</span>
     </div>
 
     <div class="section">
       <div class="section-title">シミュレーション共通設定</div>
       <div class="card">
         <div class="form-row">
-          <div class="form-group"><label>2番手ドラフト係数</label><input type="number" step="0.01" id="s-draft2" value="${settings.draft_factor_second}" /></div>
-          <div class="form-group"><label>3番手以降ドラフト係数</label><input type="number" step="0.01" id="s-draftn" value="${settings.draft_factor_other}" /></div>
+          <div class="form-group"><label>2番手ドラフト係数</label><input type="number" step="0.01" id="s-draft2" value="${settings.draft_factor_2}" /></div>
+          <div class="form-group"><label>3番手ドラフト係数</label><input type="number" step="0.01" id="s-draft3" value="${settings.draft_factor_3}" /></div>
+          <div class="form-group"><label>4番手ドラフト係数</label><input type="number" step="0.01" id="s-draft4" value="${settings.draft_factor_4}" /></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>デフォルトフレーム名</label><input type="text" id="s-frame-name" value="${esc(settings.default_frame_name)}" /></div>
-          <div class="form-group"><label>デフォルトホイール名</label><input type="text" id="s-wheel-name" value="${esc(settings.default_wheel_name)}" /></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>デフォルトフレーム flatΔ(sec)</label><input type="number" step="0.1" id="s-frame-flat" value="${settings.default_frame_flat_delta_sec}" /></div>
-          <div class="form-group"><label>デフォルトホイール flatΔ(sec)</label><input type="number" step="0.1" id="s-wheel-flat" value="${settings.default_wheel_flat_delta_sec}" /></div>
+          <div class="form-group"><label>5番手ドラフト係数</label><input type="number" step="0.01" id="s-draft5" value="${settings.draft_factor_5}" /></div>
+          <div class="form-group"><label>6番手ドラフト係数</label><input type="number" step="0.01" id="s-draft6" value="${settings.draft_factor_6}" /></div>
+          <div class="form-group"><label>7番手ドラフト係数</label><input type="number" step="0.01" id="s-draft7" value="${settings.draft_factor_7}" /></div>
+          <div class="form-group"><label>8番手ドラフト係数</label><input type="number" step="0.01" id="s-draft8" value="${settings.draft_factor_8}" /></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Bike重量 (kg)</label><input type="number" step="0.1" id="s-bike" value="${settings.bike_kg}" /></div>
@@ -70,12 +69,13 @@ export async function renderAdmin(container) {
 
   container.querySelector('#s-save')?.addEventListener('click', async () => {
     const payload = {
-      draft_factor_second: valNum(container, '#s-draft2'),
-      draft_factor_other: valNum(container, '#s-draftn'),
-      default_frame_name: valText(container, '#s-frame-name'),
-      default_wheel_name: valText(container, '#s-wheel-name'),
-      default_frame_flat_delta_sec: valNum(container, '#s-frame-flat'),
-      default_wheel_flat_delta_sec: valNum(container, '#s-wheel-flat'),
+      draft_factor_2: valNum(container, '#s-draft2'),
+      draft_factor_3: valNum(container, '#s-draft3'),
+      draft_factor_4: valNum(container, '#s-draft4'),
+      draft_factor_5: valNum(container, '#s-draft5'),
+      draft_factor_6: valNum(container, '#s-draft6'),
+      draft_factor_7: valNum(container, '#s-draft7'),
+      draft_factor_8: valNum(container, '#s-draft8'),
       bike_kg: valNum(container, '#s-bike'),
       rho: valNum(container, '#s-rho'),
       crr: valNum(container, '#s-crr'),
@@ -110,12 +110,13 @@ export async function renderAdmin(container) {
 function renderWithSettings(container, settings) {
   Object.entries(settings).forEach(([key, value]) => {
     const map = {
-      draft_factor_second: '#s-draft2',
-      draft_factor_other: '#s-draftn',
-      default_frame_name: '#s-frame-name',
-      default_wheel_name: '#s-wheel-name',
-      default_frame_flat_delta_sec: '#s-frame-flat',
-      default_wheel_flat_delta_sec: '#s-wheel-flat',
+      draft_factor_2: '#s-draft2',
+      draft_factor_3: '#s-draft3',
+      draft_factor_4: '#s-draft4',
+      draft_factor_5: '#s-draft5',
+      draft_factor_6: '#s-draft6',
+      draft_factor_7: '#s-draft7',
+      draft_factor_8: '#s-draft8',
       bike_kg: '#s-bike',
       rho: '#s-rho',
       crr: '#s-crr',
@@ -137,12 +138,4 @@ function valNum(container, selector) {
   const raw = container.querySelector(selector)?.value;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function valText(container, selector) {
-  return String(container.querySelector(selector)?.value ?? '').trim();
-}
-
-function esc(str) {
-  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g, '&quot;');
 }
