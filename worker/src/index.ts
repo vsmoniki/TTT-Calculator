@@ -15,6 +15,7 @@ import {
 import { simulate } from './routes/simulate';
 import { authLogin } from './routes/auth';
 import { getWtrlSchedule } from './routes/schedule';
+import { getSettings, updateSettings } from './routes/settings';
 
 function isAuthorized(request: Request, env: Env): boolean {
   const authHeader = request.headers.get('Authorization');
@@ -116,6 +117,12 @@ export default {
     if (segments[0] === 'schedule') {
       if (segments.length === 2 && segments[1] === 'wtrl-ttt' && method === 'GET') return getWtrlSchedule(request, env);
     }
+    // ---- /settings ----
+    if (segments[0] === 'settings' && segments.length === 1) {
+      if (method === 'GET') return getSettings(request, env);
+      if (method === 'PUT') return updateSettings(request, env);
+    }
+
     // ---- /simulate ----
     if (segments[0] === 'simulate' && segments.length === 1 && method === 'POST') {
       return simulate(request, env);

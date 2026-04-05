@@ -8,6 +8,7 @@ import { renderGear }     from './pages/gear.js';
 import { renderTeams }    from './pages/teams.js';
 import { renderSchedule } from './pages/schedule.js';
 import { renderLineups }  from './pages/lineups.js';
+import { renderAdmin }    from './pages/admin.js';
 import { setAuthPassword, apiLogin } from './api.js';
 
 const AUTH_STORAGE_KEY = 'ttt-auth-token';
@@ -19,6 +20,7 @@ const PAGES = {
   teams:    renderTeams,
   schedule: renderSchedule,
   lineups:  renderLineups,
+  admin:    renderAdmin,
 };
 
 const authGate = document.getElementById('auth-gate');

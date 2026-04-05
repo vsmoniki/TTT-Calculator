@@ -76,5 +76,9 @@ export const swapLineupMembers  = (lineupId, aId, bId) => post(`/lineups/${lineu
 export const apiLogin = (password) => post('/auth', { password });
 
 
+// ---- Settings ----
+export const fetchSettings = () => get('/settings');
+export const updateSettings = (body) => put('/settings', body);
+
 // ---- Schedule ----
 export const fetchWtrlSchedule = () => get('/schedule/wtrl-ttt');

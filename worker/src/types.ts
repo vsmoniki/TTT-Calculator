@@ -103,6 +103,12 @@ export interface LineupMemberRow {
   created_at: string;
 }
 
+export interface AppSettingsRow {
+  id: number;
+  settings_json: string;
+  updated_at: string;
+}
+
 // ---- APIリクエスト型 ----
 
 export interface CreateRiderBody {
@@ -167,4 +173,23 @@ export interface SimulateBody {
   target_time_sec?: number;
   draft_factor_second?: number;
   draft_factor_other?: number;
+}
+
+
+export interface UpdateSettingsBody {
+  draft_factor_second?: number;
+  draft_factor_other?: number;
+  bike_kg?: number;
+  rho?: number;
+  crr?: number;
+  road_cd?: number;
+  tt_cd?: number;
+  cda_calibration_multiplier?: number;
+  equipment_reference_time_sec?: number;
+  equipment_cda_sensitivity?: number;
+  default_height_m?: number;
+  default_frame_name?: string;
+  default_wheel_name?: string;
+  default_frame_flat_delta_sec?: number;
+  default_wheel_flat_delta_sec?: number;
 }
