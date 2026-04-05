@@ -82,6 +82,11 @@ export async function renderSchedule(container) {
       const data = await fetchWtrlSchedule();
       updatedEl.textContent = `最終更新: ${formatDateTime(data.fetched_at)}`;
       specialsEl.innerHTML = renderSpecials(data.specials);
+
+      if (data.fetch_error) {
+        errorEl.hidden = false;
+        errorEl.textContent = `公式サイトからの取得に失敗したため、代替表示中です: ${data.fetch_error}`;
+      }
     } catch (err) {
       errorEl.hidden = false;
       errorEl.textContent = `スケジュール取得に失敗しました: ${err?.message ?? '不明なエラー'}`;
