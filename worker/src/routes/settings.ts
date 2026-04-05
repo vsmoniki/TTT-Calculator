@@ -67,12 +67,26 @@ function validateStringField(key: (typeof STRING_KEYS)[number], value: unknown):
   return null;
 }
 
+
+async function ensureSettingsTable(env: Env): Promise<void> {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      settings_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `).run();
+}
+
 export async function getSettings(_request: Request, env: Env): Promise<Response> {
+  await ensureSettingsTable(env);
   const row = await env.DB.prepare('SELECT id, settings_json, updated_at FROM app_settings WHERE id = 1').first<AppSettingsRow>();
   return ok(toSettings(row));
 }
 
 export async function updateSettings(request: Request, env: Env): Promise<Response> {
+  await ensureSettingsTable(env);
+
   let body: UpdateSettingsBody;
   try {
     body = await request.json<UpdateSettingsBody>();
