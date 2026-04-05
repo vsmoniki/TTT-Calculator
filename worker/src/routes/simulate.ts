@@ -37,10 +37,13 @@ const G = 9.80665;
 // Cd 初期近似
 const ROAD_CD = 0.63;
 const TT_CD = 0.55;
-// 機材の平坦性能差（flat_delta_sec）をCdA倍率へ換算する係数
-// 1 lap (Tempus Fugit 25:58=1558s) を基準に、ΔCdA/CdA ≈ 3 * Δt/t で近似
-const EQUIPMENT_REFERENCE_TIME_SEC = 1558;
-const EQUIPMENT_CDA_SENSITIVITY = 3;
+// ZwifterBikes の Tempus Fugit(1 lap) 実測タイムからの較正係数
+// 条件: 280W / 56kg / 177cm / Cadex Tri + ARC1100 85/Disc / 25:58
+// MVPモデルは単純化のため絶対値がズレるので、CdA倍率で補正する
+const CDA_CALIBRATION_MULTIPLIER = 0.76;
+// 機材 flat_delta_sec を CdA へ換算する際の基準時間 [sec]
+const EQUIPMENT_REFERENCE_TIME_SEC = 1558; // 25:58
+const EQUIPMENT_CDA_SENSITIVITY = 3; // ΔCdA/CdA ≒ 3 * Δt/t（平坦近似）
 // ドラフト CdA 係数（後続）
 const DEFAULT_DRAFT_CDA_MULTIPLIER = 0.715;
 // 身長未設定時の代替値 [m]
@@ -83,7 +86,7 @@ function calcFrontalArea(member: MemberWithDetails): number {
 function calcBaseCdA(member: MemberWithDetails): number {
   const area = calcFrontalArea(member);
   const cd = isTtBike(member) ? TT_CD : ROAD_CD;
-  return cd * area;
+  return cd * area * CDA_CALIBRATION_MULTIPLIER;
 }
 
 function calcEquipmentCdAMultiplier(member: MemberWithDetails): number {
@@ -140,14 +143,17 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     route_id,
     lineup_id,
     target_speed_kph,
+    target_time_sec,
     draft_factor_second = DEFAULT_DRAFT_CDA_MULTIPLIER,
     draft_factor_other = DEFAULT_DRAFT_CDA_MULTIPLIER,
   } = body;
 
   if (!route_id || typeof route_id !== 'number') return badRequest('route_id is required');
   if (!lineup_id || typeof lineup_id !== 'number') return badRequest('lineup_id is required');
-  if (!target_speed_kph || typeof target_speed_kph !== 'number' || target_speed_kph <= 0) {
-    return badRequest('target_speed_kph must be a positive number');
+  const hasSpeed = typeof target_speed_kph === 'number' && target_speed_kph > 0;
+  const hasTime = typeof target_time_sec === 'number' && target_time_sec > 0;
+  if (!hasSpeed && !hasTime) {
+    return badRequest('target_speed_kph or target_time_sec must be a positive number');
   }
 
   // コース取得
@@ -186,15 +192,19 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     return badRequest('Lineup has no members');
   }
 
-  // m/s に変換
-  const v = target_speed_kph / 3.6;
+  // m/s に変換（タイム指定時は距離から逆算）
+  const resolvedTargetSpeedKph = hasSpeed
+    ? Number(target_speed_kph)
+    : (Number(route.distance_km) / Number(target_time_sec)) * 3600;
+  const v = resolvedTargetSpeedKph / 3.6;
   const gradeRatio = calcAverageGradeRatio(route as Record<string, unknown>);
 
   // 各ライダーの必要パワーを計算
   const results = members.map((m) => {
     const totalMassKg = m.weight_kg + BIKE_KG;
     const baseCdA = calcBaseCdA(m);
-    const adjustedCdA = baseCdA * calcEquipmentCdAMultiplier(m);
+    const equipmentCdAMultiplier = calcEquipmentCdAMultiplier(m);
+    const adjustedCdA = baseCdA * equipmentCdAMultiplier;
 
     const headW = calcRequiredPower(v, totalMassKg, gradeRatio, adjustedCdA);
     const draftCdA = adjustedCdA * calcDraftMultiplier(m, draft_factor_second, draft_factor_other);
@@ -223,7 +233,8 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
   return ok({
     route,
     lineup,
-    target_speed_kph,
+    target_speed_kph: Math.round(resolvedTargetSpeedKph * 100) / 100,
+    target_time_sec: hasTime ? target_time_sec : null,
     grade_ratio: gradeRatio,
     draft_factor_second,
     draft_factor_other,

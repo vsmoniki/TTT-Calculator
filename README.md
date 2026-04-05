@@ -207,23 +207,24 @@ export const API_BASE = 'https://ttt-calculator-api.your-subdomain.workers.dev';
 MVPでは平坦コース近似の物理モデルを使用しています。
 
 ```
-v = target_speed_kph / 3.6 [m/s]
+v = (target_speed_kph / 3.6) [m/s]
+  または
+v = (route.distance_km * 1000 / target_time_sec) [m/s]
 
 P = P_gravity + P_roll + P_aero
 P_gravity = M * g * v * sin(atan(grade))
 P_roll    = M * g * v * Crr
 P_aero    = 0.5 * rho * CdA * v^3
 
-CdA_base = Cd * A
+CdA = (Cd * A) * 0.76                      ← Tempus Fugit 実測で較正
 A_road = 0.0276 * h^0.725 * m^0.425 + 0.1647
 A_tt   = 0.0293 * h^0.725 * m^0.425 + 0.0604
 
-機材補正:
-CdA_multiplier = clamp(0.7, 1.3, 1 + 3 * (flat_delta_sec_total / 1558))
-CdA_effective  = CdA_base * CdA_multiplier
+機材補正（flat_delta_sec / aero_score から推定）:
+CdA_multiplier = 1 + 3 * (flat_delta_sec_total / 1558)
+CdA_effective  = CdA * clamp(0.7, 1.3, CdA_multiplier)
 
-flat_delta_sec_total = frame.flat_delta_sec + wheel.flat_delta_sec
-（flat_delta_sec が無い場合は aero_score から近似換算）
+flat_delta_sec_total は frame + wheel の平坦タイム差（秒）を合算
 
 ドラフト係数:
   1番手: CdA × 1.00
@@ -234,7 +235,7 @@ flat_delta_sec_total = frame.flat_delta_sec + wheel.flat_delta_sec
 
 **補足**:
 - 勾配はルート全体の平均勾配で近似（下り詳細は未反映）
-- Zwift 実機の物理エンジンとは異なる近似値です
+- Zwift 実機の物理エンジンとは異なる近似です
 
 ---
 
