@@ -12,8 +12,8 @@ export async function renderGear(container) {
       <h2 class="page-title">機材一覧</h2>
     </div>
     <div class="inner-tabs">
-      <button class="inner-tab active" id="tab-frames" onclick="switchGearTab('frames')">フレーム</button>
-      <button class="inner-tab"        id="tab-wheels" onclick="switchGearTab('wheels')">ホイール</button>
+      <button class="inner-tab active" id="tab-frames" onclick="switchGearTab('frames')">機材（フレーム）</button>
+      <button class="inner-tab"        id="tab-wheels" onclick="switchGearTab('wheels')">機材（ホイール）</button>
     </div>
     <div id="gear-content"></div>
   `;
