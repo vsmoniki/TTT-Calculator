@@ -27,9 +27,12 @@ function formatDateTime(iso) {
   }).format(dt);
 }
 
-function renderSpecials(list) {
+function renderSpecials(list, fetchError) {
   if (!Array.isArray(list) || list.length === 0) {
-    return '<p class="text-muted">現在、特別イベント情報を取得できませんでした。下の公式ページをご確認ください。</p>';
+    const reason = fetchError
+      ? `<br><span class="text-sm">理由: ${escapeHtml(fetchError)}</span>`
+      : '';
+    return `<p class="text-muted">現在、特別イベント情報を取得できませんでした。下の公式ページをご確認ください。${reason}</p>`;
   }
 
   return `
@@ -128,7 +131,7 @@ export async function renderSchedule(container) {
     try {
       const data = await fetchWtrlSchedule();
       updatedEl.textContent = `最終更新: ${formatDateTime(data.fetched_at)}`;
-      specialsEl.innerHTML = renderSpecials(data.specials);
+      specialsEl.innerHTML = renderSpecials(data.specials, data.fetch_error);
 
       if (data.fetch_error) {
         errorEl.hidden = false;
