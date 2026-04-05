@@ -202,31 +202,39 @@ export const API_BASE = 'https://ttt-calculator-api.your-subdomain.workers.dev';
 
 ---
 
-## シミュレーション計算モデル（MVPの簡略版）
+## シミュレーション計算モデル（MVP）
 
 MVPでは平坦コース近似の物理モデルを使用しています。
 
 ```
-v = target_speed_kph / 3.6  [m/s]
+v = target_speed_kph / 3.6 [m/s]
 
-CdA = 0.32
-    - (frame.aero_score - 5) × 0.005   ← フレーム空力補正
-    - (wheel.aero_score - 5) × 0.004   ← ホイール空力補正
+P = P_gravity + P_roll + P_aero
+P_gravity = M * g * v * sin(atan(grade))
+P_roll    = M * g * v * Crr
+P_aero    = 0.5 * rho * CdA * v^3
 
-F_aero = 0.5 × 1.225 × CdA × v²
-F_roll = 0.004 × (体重 + 8kg) × 9.81
-P_head = (F_aero + F_roll) × v         ← 先頭必要パワー
+CdA_base = Cd * A
+A_road = 0.0276 * h^0.725 * m^0.425 + 0.1647
+A_tt   = 0.0293 * h^0.725 * m^0.425 + 0.0604
+
+機材補正:
+CdA_multiplier = clamp(0.7, 1.3, 1 + 3 * (flat_delta_sec_total / 1558))
+CdA_effective  = CdA_base * CdA_multiplier
+
+flat_delta_sec_total = frame.flat_delta_sec + wheel.flat_delta_sec
+（flat_delta_sec が無い場合は aero_score から近似換算）
 
 ドラフト係数:
-  1番手: 係数なし（P_head）
-  2番手: P_head × 0.80
-  3番手以降: P_head × 0.75
+  1番手: CdA × 1.00
+  2番手: CdA × draft_factor_second（デフォルト 0.715）
+  3番手以降: CdA × draft_factor_other（デフォルト 0.715）
+  TTバイク: ドラフト無効（CdA × 1.00）
 ```
 
 **補足**:
-- 勾配・風の影響は含まれません
-- Zwift の実際の物理エンジンとは異なる近似値です
-- フレーム/ホイールの aero_score は仮データです
+- 勾配はルート全体の平均勾配で近似（下り詳細は未反映）
+- Zwift 実機の物理エンジンとは異なる近似値です
 
 ---
 
