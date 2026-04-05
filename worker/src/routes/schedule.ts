@@ -143,7 +143,17 @@ export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Res
         fetched_at: new Date().toISOString(),
         specials,
         has_data: specials.length > 0,
-        fetch_error: null,
+        fetch_error: specials.length > 0
+          ? null
+          : 'WTRLページへの接続は成功しましたが、特別イベント情報を抽出できませんでした（0件）。',
+        fetch_error_details: specials.length > 0
+          ? undefined
+          : [
+            {
+              candidate_url: fetchedFrom,
+              message: 'ページ取得は成功しましたが、パーサーが日付-イベント形式の行を検出できませんでした。',
+            },
+          ],
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
