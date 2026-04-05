@@ -3,6 +3,7 @@ import { ok } from '../response';
 
 const WTRL_TTT_URL = 'https://www.wtrl.racing/ttt-home/';
 const WTRL_TTT_PUBLIC_URL = 'https://www.wtrl.racing/ttt-home/#tttschedule';
+const WTRL_TTT_JINA_MIRROR_URL = 'https://r.jina.ai/http://www.wtrl.racing/ttt-home/';
 const FETCH_TIMEOUT_MS = 12000;
 
 interface ScheduleSpecial {
@@ -120,8 +121,13 @@ async function fetchScheduleHtml(url: string): Promise<FetchAttemptResult> {
 
 export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Response> {
   const errors: string[] = [];
+  const candidateUrls = [
+    WTRL_TTT_URL,
+    WTRL_TTT_PUBLIC_URL,
+    WTRL_TTT_JINA_MIRROR_URL,
+  ];
 
-  for (const candidateUrl of [WTRL_TTT_URL, WTRL_TTT_PUBLIC_URL]) {
+  for (const candidateUrl of candidateUrls) {
     try {
       const { html, fetchedFrom } = await fetchScheduleHtml(candidateUrl);
       const specials = parseUpcomingSpecials(html);
