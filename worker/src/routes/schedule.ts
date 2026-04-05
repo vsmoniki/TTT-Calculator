@@ -22,6 +22,11 @@ interface FetchAttemptError {
   message: string;
 }
 
+interface ParseAttemptDetail {
+  candidate_url: string;
+  message: string;
+}
+
 const DATE_HEAD_PATTERN = String.raw`(?:\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s+\d{4}|\d{1,2}\s+[A-Za-z]{3,}(?:\s+\d{4})?|[A-Za-z]{3,}\s+\d{1,2}(?:,?\s+\d{4})?|\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)`;
 
 function stripTagsAndDecode(text: string): string {
@@ -103,6 +108,17 @@ function parseUpcomingSpecials(html: string): ScheduleSpecial[] {
   return results.slice(0, 12);
 }
 
+function previewHtml(html: string): string {
+  const plain = stripTagsAndDecode(html).slice(0, 500);
+  if (plain) return plain;
+
+  const raw = html
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
+  return raw;
+}
+
 async function fetchScheduleHtml(url: string): Promise<FetchAttemptResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -132,6 +148,7 @@ async function fetchScheduleHtml(url: string): Promise<FetchAttemptResult> {
 
 export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Response> {
   const errors: FetchAttemptError[] = [];
+  const parseFailures: ParseAttemptDetail[] = [];
   const candidateUrls = [
     WTRL_TTT_URL,
     WTRL_TTT_PUBLIC_URL,
@@ -142,29 +159,29 @@ export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Res
     try {
       const { html, fetchedFrom } = await fetchScheduleHtml(candidateUrl);
       const specials = parseUpcomingSpecials(html);
-      const excerpt = stripTagsAndDecode(html).slice(0, 500);
+      const excerpt = previewHtml(html);
+
+      if (specials.length === 0) {
+        parseFailures.push(
+          {
+            candidate_url: fetchedFrom,
+            message: 'ページ取得は成功しましたが、パーサーが日付-イベント形式の行を検出できませんでした。',
+          },
+          {
+            candidate_url: fetchedFrom,
+            message: `先頭プレビュー: ${excerpt || '(空文字)'}${excerpt.length >= 500 ? '…' : ''}`,
+          }
+        );
+        continue;
+      }
 
       return ok({
         source_url: WTRL_TTT_PUBLIC_URL,
         fetched_from: fetchedFrom,
         fetched_at: new Date().toISOString(),
         specials,
-        has_data: specials.length > 0,
-        fetch_error: specials.length > 0
-          ? null
-          : 'WTRLページへの接続は成功しましたが、特別イベント情報を抽出できませんでした（0件）。',
-        fetch_error_details: specials.length > 0
-          ? undefined
-          : [
-            {
-              candidate_url: fetchedFrom,
-              message: 'ページ取得は成功しましたが、パーサーが日付-イベント形式の行を検出できませんでした。',
-            },
-            {
-              candidate_url: fetchedFrom,
-              message: `先頭プレビュー: ${excerpt || '(空文字)'}${excerpt.length >= 500 ? '…' : ''}`,
-            },
-          ],
+        has_data: true,
+        fetch_error: null,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -174,6 +191,24 @@ export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Res
       });
       console.error('WTRL schedule fetch attempt failed', candidateUrl, err);
     }
+  }
+
+  if (parseFailures.length > 0) {
+    return ok({
+      source_url: WTRL_TTT_PUBLIC_URL,
+      fetched_from: null,
+      fetched_at: new Date().toISOString(),
+      specials: [],
+      has_data: false,
+      fetch_error: 'WTRLページへの接続は成功しましたが、特別イベント情報を抽出できませんでした（0件）。',
+      fetch_error_details: [...parseFailures, ...errors],
+      support_request: [
+        '手動更新を押した時刻（タイムゾーン付き）',
+        '表示されているエラーメッセージ全文',
+        '利用しているブラウザ名とバージョン',
+        '必要ならDevToolsのNetworkタブで /schedule/wtrl-ttt のレスポンス内容',
+      ],
+    });
   }
 
   const fetchError = `WTRL schedule fetch failed (${errors.map((entry) => `${entry.candidate_url}: ${entry.message}`).join(' | ')})`;
