@@ -1,53 +1,28 @@
 // =============================================
 // POST /simulate — TTTシミュレーション
 // =============================================
-// 物理モデル（コミュニティ近似）:
-//   P = P_gravity + P_roll + P_aero
-//
-//   P_gravity = M * g * v * sin(atan(G))
-//   P_roll    = M * g * v * Crr
-//   P_aero    = 0.5 * rho * CdA * v^3
-//
-//   M = rider_weight + bike_weight
-//   G = grade_ratio（5% -> 0.05）
-//
-//   Frontal area:
-//   A_road = 0.0276 * h^0.725 * m^0.425 + 0.1647
-//   A_tt   = 0.0293 * h^0.725 * m^0.425 + 0.0604
-//
-//   Cd (初期近似):
-//   road = 0.63, tt = 0.55
-//   CdA = Cd * A
-//
-//   ドラフト（CdA倍率で近似）:
-//   先頭: 1.0 / 後続: 0.715 / TT: 1.0（ドラフト無効）
-// =============================================
 
-import { Env, SimulateBody } from '../types';
+import { Env, AppSettingsRow, SimulateBody } from '../types';
 import { ok, badRequest, notFound } from '../response';
 
-// バイク重量 [kg]
-const BIKE_KG = 8;
-// 空気密度 [kg/m³]
-const RHO = 1.225;
-// 転がり抵抗係数
-const CRR = 0.004;
-// 重力加速度 [m/s²]
 const G = 9.80665;
-// Cd 初期近似
-const ROAD_CD = 0.63;
-const TT_CD = 0.55;
-// ZwifterBikes の Tempus Fugit(1 lap) 実測タイムからの較正係数
-// 条件: 280W / 56kg / 177cm / Zwift Concept Z1 (Tron) / 27:48
-// MVPモデルは単純化のため絶対値がズレるので、CdA倍率で補正する
-const CDA_CALIBRATION_MULTIPLIER = 0.76;
-// 機材 flat_delta_sec を CdA へ換算する際の基準時間 [sec]
-const EQUIPMENT_REFERENCE_TIME_SEC = 1668; // 27:48
-const EQUIPMENT_CDA_SENSITIVITY = 3; // ΔCdA/CdA ≒ 3 * Δt/t（平坦近似）
-// ドラフト CdA 係数（後続）
-const DEFAULT_DRAFT_CDA_MULTIPLIER = 0.715;
-// 身長未設定時の代替値 [m]
-const DEFAULT_HEIGHT_M = 1.75;
+const AERO_BASE = 5;
+
+const DEFAULT_SETTINGS = {
+  draft_factor_second: 0.8,
+  draft_factor_other: 0.75,
+  bike_kg: 8,
+  rho: 1.225,
+  crr: 0.004,
+  road_cd: 0.63,
+  tt_cd: 0.55,
+  cda_calibration_multiplier: 0.76,
+  equipment_reference_time_sec: 1668,
+  equipment_cda_sensitivity: 3,
+  default_height_m: 1.75,
+};
+
+type SimulationSettings = typeof DEFAULT_SETTINGS;
 
 interface MemberWithDetails {
   id: number;
@@ -65,17 +40,28 @@ interface MemberWithDetails {
   wheel_flat_delta_sec: number | null;
 }
 
-function getRiderHeightM(member: MemberWithDetails): number {
+async function loadSettings(env: Env): Promise<SimulationSettings> {
+  const row = await env.DB.prepare('SELECT settings_json FROM app_settings WHERE id = 1').first<AppSettingsRow>();
+  if (!row?.settings_json) return { ...DEFAULT_SETTINGS };
+  try {
+    const parsed = JSON.parse(row.settings_json) as Partial<SimulationSettings>;
+    return { ...DEFAULT_SETTINGS, ...parsed };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+function getRiderHeightM(member: MemberWithDetails, settings: SimulationSettings): number {
   const heightCm = member.height_cm ?? 0;
-  return (heightCm > 0 ? heightCm : DEFAULT_HEIGHT_M * 100) / 100;
+  return (heightCm > 0 ? heightCm : settings.default_height_m * 100) / 100;
 }
 
 function isTtBike(member: MemberWithDetails): boolean {
   return (member.bike_type ?? 'road').toLowerCase() === 'tt';
 }
 
-function calcFrontalArea(member: MemberWithDetails): number {
-  const h = getRiderHeightM(member);
+function calcFrontalArea(member: MemberWithDetails, settings: SimulationSettings): number {
+  const h = getRiderHeightM(member, settings);
   const m = member.weight_kg;
   const { coeff, offset } = isTtBike(member)
     ? { coeff: 0.0293, offset: 0.0604 }
@@ -83,13 +69,13 @@ function calcFrontalArea(member: MemberWithDetails): number {
   return coeff * Math.pow(h, 0.725) * Math.pow(m, 0.425) + offset;
 }
 
-function calcBaseCdA(member: MemberWithDetails): number {
-  const area = calcFrontalArea(member);
-  const cd = isTtBike(member) ? TT_CD : ROAD_CD;
-  return cd * area * CDA_CALIBRATION_MULTIPLIER;
+function calcBaseCdA(member: MemberWithDetails, settings: SimulationSettings): number {
+  const area = calcFrontalArea(member, settings);
+  const cd = isTtBike(member) ? settings.tt_cd : settings.road_cd;
+  return cd * area * settings.cda_calibration_multiplier;
 }
 
-function calcEquipmentCdAMultiplier(member: MemberWithDetails): number {
+function calcEquipmentCdAMultiplier(member: MemberWithDetails, settings: SimulationSettings): number {
   const frameFlatDeltaSec = Number(member.frame_flat_delta_sec ?? NaN);
   const wheelFlatDeltaSec = Number(member.wheel_flat_delta_sec ?? NaN);
   const hasFlatDelta = Number.isFinite(frameFlatDeltaSec) || Number.isFinite(wheelFlatDeltaSec);
@@ -97,16 +83,23 @@ function calcEquipmentCdAMultiplier(member: MemberWithDetails): number {
   const flatDeltaSec = hasFlatDelta
     ? (Number.isFinite(frameFlatDeltaSec) ? frameFlatDeltaSec : 0)
       + (Number.isFinite(wheelFlatDeltaSec) ? wheelFlatDeltaSec : 0)
-    : -(((member.frame_aero_score ?? 5) - 5) * 4 + ((member.wheel_aero_score ?? 5) - 5) * 4);
+    : -(((member.frame_aero_score ?? AERO_BASE) - AERO_BASE) * 4
+      + ((member.wheel_aero_score ?? AERO_BASE) - AERO_BASE) * 4);
 
-  const multiplier = 1 + (EQUIPMENT_CDA_SENSITIVITY * flatDeltaSec) / EQUIPMENT_REFERENCE_TIME_SEC;
+  const multiplier = 1 + (settings.equipment_cda_sensitivity * flatDeltaSec) / settings.equipment_reference_time_sec;
   return Math.max(0.7, Math.min(1.3, multiplier));
 }
 
-function calcRequiredPower(v: number, massKg: number, gradeRatio: number, effectiveCdA: number): number {
+function calcRequiredPower(
+  v: number,
+  massKg: number,
+  gradeRatio: number,
+  effectiveCdA: number,
+  settings: SimulationSettings
+): number {
   const pGravity = massKg * G * v * Math.sin(Math.atan(gradeRatio));
-  const pRoll = massKg * G * v * CRR;
-  const pAero = 0.5 * RHO * effectiveCdA * Math.pow(v, 3);
+  const pRoll = massKg * G * v * settings.crr;
+  const pAero = 0.5 * settings.rho * effectiveCdA * Math.pow(v, 3);
   return pGravity + pRoll + pAero;
 }
 
@@ -127,7 +120,6 @@ function calcAverageGradeRatio(route: Record<string, unknown>): number {
   const elevationM = Number(route.elevation_m);
   const hasValidDistance = Number.isFinite(distanceKm) && distanceKm > 0;
   const hasValidElevation = Number.isFinite(elevationM) && elevationM > 0;
-  // 総獲得標高から代表勾配を作る（下り情報は未保持のため正側のみ）
   return hasValidDistance && hasValidElevation ? elevationM / (distanceKm * 1000) : 0;
 }
 
@@ -139,13 +131,15 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     return badRequest('Invalid JSON body');
   }
 
+  const settings = await loadSettings(env);
+
   const {
     route_id,
     lineup_id,
     target_speed_kph,
     target_time_sec,
-    draft_factor_second = DEFAULT_DRAFT_CDA_MULTIPLIER,
-    draft_factor_other = DEFAULT_DRAFT_CDA_MULTIPLIER,
+    draft_factor_second = settings.draft_factor_second,
+    draft_factor_other = settings.draft_factor_other,
   } = body;
 
   if (!route_id || typeof route_id !== 'number') return badRequest('route_id is required');
@@ -156,15 +150,12 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     return badRequest('target_speed_kph or target_time_sec must be a positive number');
   }
 
-  // コース取得
   const route = await env.DB.prepare('SELECT * FROM routes WHERE id = ?').bind(route_id).first();
   if (!route) return notFound('Route');
 
-  // ラインナップ取得
   const lineup = await env.DB.prepare('SELECT * FROM lineups WHERE id = ?').bind(lineup_id).first();
   if (!lineup) return notFound('Lineup');
 
-  // ラインナップメンバー取得（ライダー・フレーム・ホイール情報付き）
   const { results: rawMembers } = await env.DB.prepare(`
     SELECT
       lm.id, lm.lineup_id, lm.rider_id, lm.order_index,
@@ -185,30 +176,27 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     ORDER BY lm.order_index
   `).bind(lineup_id).all();
 
-  // D1 の all() は unknown[] を返すので MemberWithDetails にキャスト
   const members = rawMembers as unknown as MemberWithDetails[];
 
   if (members.length === 0) {
     return badRequest('Lineup has no members');
   }
 
-  // m/s に変換（タイム指定時は距離から逆算）
   const resolvedTargetSpeedKph = hasSpeed
     ? Number(target_speed_kph)
     : (Number(route.distance_km) / Number(target_time_sec)) * 3600;
   const v = resolvedTargetSpeedKph / 3.6;
   const gradeRatio = calcAverageGradeRatio(route as Record<string, unknown>);
 
-  // 各ライダーの必要パワーを計算
   const results = members.map((m) => {
-    const totalMassKg = m.weight_kg + BIKE_KG;
-    const baseCdA = calcBaseCdA(m);
-    const equipmentCdAMultiplier = calcEquipmentCdAMultiplier(m);
+    const totalMassKg = m.weight_kg + settings.bike_kg;
+    const baseCdA = calcBaseCdA(m, settings);
+    const equipmentCdAMultiplier = calcEquipmentCdAMultiplier(m, settings);
     const adjustedCdA = baseCdA * equipmentCdAMultiplier;
 
-    const headW = calcRequiredPower(v, totalMassKg, gradeRatio, adjustedCdA);
+    const headW = calcRequiredPower(v, totalMassKg, gradeRatio, adjustedCdA, settings);
     const draftCdA = adjustedCdA * calcDraftMultiplier(m, draft_factor_second, draft_factor_other);
-    const draftW = calcRequiredPower(v, totalMassKg, gradeRatio, draftCdA);
+    const draftW = calcRequiredPower(v, totalMassKg, gradeRatio, draftCdA, settings);
 
     return {
       rider_id: m.rider_id,
@@ -221,7 +209,6 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     };
   });
 
-  // ボトルネックライダー = ドラフト時FTP比が最大のライダー
   const bottleneck = results.reduce(
     (max, r) => (r.draft_required_pct_ftp > max.draft_required_pct_ftp ? r : max),
     results[0]
@@ -238,6 +225,7 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
     grade_ratio: gradeRatio,
     draft_factor_second,
     draft_factor_other,
+    settings,
     results,
     summary: {
       bottleneck_rider_id: bottleneck.rider_id,

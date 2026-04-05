@@ -5,22 +5,28 @@
 // ・Auto Order / Auto Optimize
 // ・URLステート復元
 // =============================================
-import { fetchRiders, fetchFrames, fetchWheels } from '../api.js';
+import { fetchRiders, fetchFrames, fetchWheels, fetchSettings } from '../api.js';
 
 // ---- 物理定数 ----
 const AERO_BASE = 5.0;
-const BIKE_KG   = 8;
-const RHO       = 1.225;
-const CRR       = 0.004;
 const G         = 9.81;
-const ROAD_CD   = 0.63;
-const TT_CD     = 0.55;
-const CDA_CALIBRATION_MULTIPLIER = 0.76;
-const EQUIPMENT_REFERENCE_TIME_SEC = 1668; // 27:48
-const EQUIPMENT_CDA_SENSITIVITY = 3;
-const DEFAULT_HEIGHT_M = 1.75;
-const DEFAULT_FRAME_CANDIDATES = ['CADEX tri', 'Cadex Tri', 'Canyon Aeroad 2021'];
-const DEFAULT_WHEEL_CANDIDATES = ['DT Swiss ARC 1100 DICUT 85/Disc', 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
+const DEFAULT_SETTINGS = {
+  draft_factor_second: 0.8,
+  draft_factor_other: 0.75,
+  bike_kg: 8,
+  rho: 1.225,
+  crr: 0.004,
+  road_cd: 0.63,
+  tt_cd: 0.55,
+  cda_calibration_multiplier: 0.76,
+  equipment_reference_time_sec: 1668,
+  equipment_cda_sensitivity: 3,
+  default_height_m: 1.75,
+  default_frame_name: 'CADEX tri',
+  default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
+  default_frame_flat_delta_sec: 0,
+  default_wheel_flat_delta_sec: 0,
+};
 const TRON_FRAME_CANDIDATES = ['Zwift Concept Z1 (Tron)', 'Tron'];
 const ROTATION_CYCLE_SEC = 120; // Auto Optimize のベース回転時間 (秒)
 
@@ -28,8 +34,9 @@ let state = {
   riders: [], frames: [], wheels: [],
   members: [],        // [{ rider, frameId, wheelId, order, pull_sec }]
   speed: 44,
-  draft2: 0.80,
-  draftN: 0.75,
+  draft2: DEFAULT_SETTINGS.draft_factor_second,
+  draftN: DEFAULT_SETTINGS.draft_factor_other,
+  settings: { ...DEFAULT_SETTINGS },
   defaultFrameId: null,
   defaultWheelId: null,
 };
@@ -42,14 +49,14 @@ function calcHeadPower(member, v) {
   const frame = state.frames.find((f) => f.id === member.frameId);
   const wheel = state.wheels.find((w) => w.id === member.wheelId);
   const cda  = calcAdjustedCdA(member, frame, wheel);
-  const fAero = 0.5 * RHO * cda * v * v;
-  const fRoll = CRR * (member.rider.weight_kg + BIKE_KG) * G;
+  const fAero = 0.5 * state.settings.rho * cda * v * v;
+  const fRoll = state.settings.crr * (member.rider.weight_kg + state.settings.bike_kg) * G;
   return (fAero + fRoll) * v;
 }
 
 function getRiderHeightM(member) {
   const heightCm = Number(member?.rider?.height_cm ?? 0);
-  return (heightCm > 0 ? heightCm : DEFAULT_HEIGHT_M * 100) / 100;
+  return (heightCm > 0 ? heightCm : state.settings.default_height_m * 100) / 100;
 }
 
 function isTtBike(frame) {
@@ -65,13 +72,13 @@ function calcFrontalArea(member, frame) {
 }
 
 function calcBaseCdA(member, frame) {
-  const cd = isTtBike(frame) ? TT_CD : ROAD_CD;
-  return cd * calcFrontalArea(member, frame) * CDA_CALIBRATION_MULTIPLIER;
+  const cd = isTtBike(frame) ? state.settings.tt_cd : state.settings.road_cd;
+  return cd * calcFrontalArea(member, frame) * state.settings.cda_calibration_multiplier;
 }
 
 function calcEquipmentCdAMultiplier(frame, wheel) {
-  const frameFlatDeltaSec = Number(frame?.flat_delta_sec ?? NaN);
-  const wheelFlatDeltaSec = Number(wheel?.flat_delta_sec ?? NaN);
+  const frameFlatDeltaSec = Number(frame?.flat_delta_sec ?? state.settings.default_frame_flat_delta_sec);
+  const wheelFlatDeltaSec = Number(wheel?.flat_delta_sec ?? state.settings.default_wheel_flat_delta_sec);
   const hasFlatDelta = Number.isFinite(frameFlatDeltaSec) || Number.isFinite(wheelFlatDeltaSec);
 
   const flatDeltaSec = hasFlatDelta
@@ -80,7 +87,7 @@ function calcEquipmentCdAMultiplier(frame, wheel) {
     : -(((Number(frame?.aero_score ?? AERO_BASE) - AERO_BASE) * 4)
       + ((Number(wheel?.aero_score ?? AERO_BASE) - AERO_BASE) * 4));
 
-  const multiplier = 1 + (EQUIPMENT_CDA_SENSITIVITY * flatDeltaSec) / EQUIPMENT_REFERENCE_TIME_SEC;
+  const multiplier = 1 + (state.settings.equipment_cda_sensitivity * flatDeltaSec) / state.settings.equipment_reference_time_sec;
   return Math.max(0.7, Math.min(1.3, multiplier));
 }
 
@@ -250,10 +257,13 @@ function isTronFrame(frameId) {
 // ============================================================
 
 export async function renderMain(container) {
-  const [riders, frames, wheels] = await Promise.all([fetchRiders(), fetchFrames(), fetchWheels()]);
-  const defaultFrameId = findDefaultGearId(frames, DEFAULT_FRAME_CANDIDATES);
-  const defaultWheelId = findDefaultGearId(wheels, DEFAULT_WHEEL_CANDIDATES);
-  state = { ...state, riders, frames, wheels, members: [], defaultFrameId, defaultWheelId };
+  const [riders, frames, wheels, settings] = await Promise.all([fetchRiders(), fetchFrames(), fetchWheels(), fetchSettings()]);
+  const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
+  const defaultFrameCandidates = [mergedSettings.default_frame_name, 'Cadex Tri', 'Canyon Aeroad 2021'];
+  const defaultWheelCandidates = [mergedSettings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
+  const defaultFrameId = findDefaultGearId(frames, defaultFrameCandidates);
+  const defaultWheelId = findDefaultGearId(wheels, defaultWheelCandidates);
+  state = { ...state, riders, frames, wheels, members: [], defaultFrameId, defaultWheelId, settings: mergedSettings, draft2: mergedSettings.draft_factor_second, draftN: mergedSettings.draft_factor_other }; 
 
   // URLステート復元
   const hashMatch = location.hash.match(/[#&]state=([^&]*)/);
