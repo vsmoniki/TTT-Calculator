@@ -51,25 +51,29 @@ function defaultWheelCandidates() {
   return [state.settings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'].filter(Boolean);
 }
 
-function getSelectableFrames() {
+function getSelectableEquipments() {
   const defaultFrameId = findDefaultGearId(state.frames, defaultFrameCandidates());
-  const tronFrameId = findTronFrameId(state.frames);
-  const allowed = state.settings.equipment_preset === 'tron'
-    ? new Set([tronFrameId].filter(Boolean))
-    : new Set([defaultFrameId, tronFrameId].filter(Boolean));
-  return state.frames.filter((f) => allowed.has(f.id));
-}
-
-function getSelectableWheels() {
-  if (state.settings.equipment_preset === 'tron') return [];
   const defaultWheelId = findDefaultGearId(state.wheels, defaultWheelCandidates());
-  if (!defaultWheelId) return [];
-  return state.wheels.filter((w) => w.id === defaultWheelId);
-}
+  const tronFrameId = findTronFrameId(state.frames);
+  const equipments = [];
 
-function isTronFrame(frameId) {
-  const tronId = findTronFrameId(state.frames);
-  return !!tronId && frameId === tronId;
+  if (defaultFrameId && defaultWheelId) {
+    equipments.push({
+      key: 'cadex_dt85',
+      label: 'Cadex Tri × DT Swiss ARC 1100 DICUT 85/Disc',
+      frame_id: defaultFrameId,
+      wheel_id: defaultWheelId,
+    });
+  }
+  if (tronFrameId) {
+    equipments.push({
+      key: 'tron',
+      label: 'Zwift Concept Z1 (Tron)',
+      frame_id: tronFrameId,
+      wheel_id: null,
+    });
+  }
+  return equipments;
 }
 
 export async function renderLineups(container) {
@@ -265,9 +269,8 @@ async function renderDetail(container) {
 }
 
 function renderMemberCard(m, idx, total) {
-  const selectableFrames = getSelectableFrames();
-  const selectableWheels = getSelectableWheels();
-  const tronSelected = isTronFrame(m.frame_id);
+  const selectableEquipments = getSelectableEquipments();
+  const selectedEquipment = selectableEquipments.find((eq) => eq.frame_id === m.frame_id && eq.wheel_id === (m.wheel_id ?? null));
   return `
     <div class="member-card" id="mcard-${m.id}">
       <div class="member-card-header">
@@ -286,17 +289,10 @@ function renderMemberCard(m, idx, total) {
       </div>
       <div class="member-card-gear">
         <div class="form-group" style="margin:0">
-          <label>フレーム</label>
-          <select id="frame-sel-${m.id}" onchange="saveGear(${m.id})">
+          <label>機材</label>
+          <select id="equipment-sel-${m.id}" onchange="saveGear(${m.id})">
             <option value="">— なし —</option>
-            ${selectableFrames.map((f) => `<option value="${f.id}" ${f.id === m.frame_id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group" style="margin:0">
-          <label>ホイール</label>
-          <select id="wheel-sel-${m.id}" onchange="saveGear(${m.id})" ${tronSelected ? 'disabled' : ''}>
-            <option value="">— なし —</option>
-            ${selectableWheels.map((w) => `<option value="${w.id}" ${w.id === m.wheel_id ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}
+            ${selectableEquipments.map((eq) => `<option value="${eq.key}" ${selectedEquipment?.key === eq.key ? 'selected' : ''}>${esc(eq.label)}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -348,8 +344,7 @@ function bindDetailEvents(container) {
   };
 
   window.saveGear = async (memberId) => {
-    const frameVal = document.getElementById(`frame-sel-${memberId}`)?.value;
-    const wheelVal = document.getElementById(`wheel-sel-${memberId}`)?.value;
+    const equipmentVal = document.getElementById(`equipment-sel-${memberId}`)?.value;
     const errEl = document.getElementById(`gear-err-${memberId}`);
     if (errEl) errEl.style.display = 'none';
 
@@ -363,11 +358,12 @@ function bindDetailEvents(container) {
     }
 
     try {
-      const frameId = frameVal ? parseInt(frameVal) : null;
-      const wheelId = wheelVal ? parseInt(wheelVal) : null;
+      const selectedEquipment = getSelectableEquipments().find((eq) => eq.key === equipmentVal);
+      const frameId = selectedEquipment?.frame_id ?? null;
+      const wheelId = selectedEquipment?.wheel_id ?? null;
       await updateLineupMember(state.lineupId, memberId, {
         frame_id: frameId,
-        wheel_id: isTronFrame(frameId) ? null : wheelId,
+        wheel_id: wheelId,
       });
       const ind = header?.querySelector('.saving-indicator');
       if (ind) { ind.textContent = '✓ 保存'; setTimeout(() => ind.remove(), 1500); }
