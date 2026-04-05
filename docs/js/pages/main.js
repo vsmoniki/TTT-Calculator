@@ -11,8 +11,13 @@ import { fetchRiders, fetchFrames, fetchWheels, fetchSettings } from '../api.js'
 const AERO_BASE = 5.0;
 const G         = 9.81;
 const DEFAULT_SETTINGS = {
-  draft_factor_second: 0.8,
-  draft_factor_other: 0.75,
+  draft_factor_2: 0.8,
+  draft_factor_3: 0.75,
+  draft_factor_4: 0.75,
+  draft_factor_5: 0.75,
+  draft_factor_6: 0.75,
+  draft_factor_7: 0.75,
+  draft_factor_8: 0.75,
   bike_kg: 8,
   rho: 1.225,
   crr: 0.004,
@@ -34,8 +39,7 @@ let state = {
   riders: [], frames: [], wheels: [],
   members: [],        // [{ rider, frameId, wheelId, order, pull_sec }]
   speed: 44,
-  draft2: DEFAULT_SETTINGS.draft_factor_second,
-  draftN: DEFAULT_SETTINGS.draft_factor_other,
+  draftFactors: buildDraftFactors(DEFAULT_SETTINGS),
   settings: { ...DEFAULT_SETTINGS },
   defaultFrameId: null,
   defaultWheelId: null,
@@ -97,11 +101,32 @@ function calcAdjustedCdA(member, frame, wheel) {
   return Math.max(0.15, baseCdA * equipmentCdAMultiplier);
 }
 
+function buildDraftFactors(settings) {
+  return {
+    2: Number(settings.draft_factor_2),
+    3: Number(settings.draft_factor_3),
+    4: Number(settings.draft_factor_4),
+    5: Number(settings.draft_factor_5),
+    6: Number(settings.draft_factor_6),
+    7: Number(settings.draft_factor_7),
+    8: Number(settings.draft_factor_8),
+  };
+}
+
+function draftFactorByOrder(order) {
+  if (order <= 1) return 1.0;
+  if (order >= 8) return state.draftFactors[8];
+  return state.draftFactors[order] ?? state.draftFactors[8];
+}
+
 // ドラフト恩恵の平均係数（先頭以外の全ポジション平均）
 function draftFactorAvg(n) {
   if (n <= 1) return 1.0;
-  if (n === 2) return state.draft2;
-  return (state.draft2 + (n - 2) * state.draftN) / (n - 1);
+  const factors = [];
+  for (let order = 2; order <= n; order += 1) {
+    factors.push(draftFactorByOrder(order));
+  }
+  return rowsAverage(factors);
 }
 
 function calcResults() {
@@ -114,7 +139,7 @@ function calcResults() {
 
   const rows = sorted.map((m) => {
     const headW = calcHeadPower(m, v);
-    const draftW = headW * (m.order === 1 ? 1.0 : m.order === 2 ? state.draft2 : state.draftN);
+    const draftW = headW * draftFactorByOrder(m.order);
     const headPct  = Math.round((headW  / m.rider.ftp_w) * 1000) / 10;
     const draftPct = Math.round((draftW / m.rider.ftp_w) * 1000) / 10;
     const pullRatio = m.pull_sec / totalPull;
@@ -175,8 +200,6 @@ function decodeState(hash) {
 function applyURLState(decoded) {
   if (!decoded?.m) return;
   state.speed           = decoded.spd ?? state.speed;
-  state.draft2          = decoded.d2  ?? state.draft2;
-  state.draftN          = decoded.dN  ?? state.draftN;
   state.members = decoded.m.map((entry) => {
     const rider = state.riders.find((r) => r.id === entry.id);
     if (!rider) return null;
@@ -263,7 +286,7 @@ export async function renderMain(container) {
   const defaultWheelCandidates = [mergedSettings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
   const defaultFrameId = findDefaultGearId(frames, defaultFrameCandidates);
   const defaultWheelId = findDefaultGearId(wheels, defaultWheelCandidates);
-  state = { ...state, riders, frames, wheels, members: [], defaultFrameId, defaultWheelId, settings: mergedSettings, draft2: mergedSettings.draft_factor_second, draftN: mergedSettings.draft_factor_other }; 
+  state = { ...state, riders, frames, wheels, members: [], defaultFrameId, defaultWheelId, settings: mergedSettings, draftFactors: buildDraftFactors(mergedSettings) }; 
 
   // URLステート復元
   const hashMatch = location.hash.match(/[#&]state=([^&]*)/);

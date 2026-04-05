@@ -171,14 +171,24 @@ export interface SimulateBody {
   lineup_id: number;
   target_speed_kph?: number;
   target_time_sec?: number;
-  draft_factor_second?: number;
-  draft_factor_other?: number;
+  draft_factor_2?: number;
+  draft_factor_3?: number;
+  draft_factor_4?: number;
+  draft_factor_5?: number;
+  draft_factor_6?: number;
+  draft_factor_7?: number;
+  draft_factor_8?: number;
 }
 
 
 export interface UpdateSettingsBody {
-  draft_factor_second?: number;
-  draft_factor_other?: number;
+  draft_factor_2?: number;
+  draft_factor_3?: number;
+  draft_factor_4?: number;
+  draft_factor_5?: number;
+  draft_factor_6?: number;
+  draft_factor_7?: number;
+  draft_factor_8?: number;
   bike_kg?: number;
   rho?: number;
   crr?: number;
