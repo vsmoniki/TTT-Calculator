@@ -56,9 +56,34 @@
     </main>
 
     <footer class="site-footer">
-      <p>Zwift TTT Calculator — 個人利用向け非公式ツール</p>
+      <p id="last-deploy-time">最終更新日時: 読み込み中...</p>
     </footer>
   </div>
+
+  <script>
+    (() => {
+      const target = document.getElementById('last-deploy-time');
+      if (!target) return;
+
+      const lastModified = new Date(document.lastModified);
+      if (Number.isNaN(lastModified.getTime())) {
+        target.textContent = '最終更新日時: 取得できませんでした';
+        return;
+      }
+
+      const formatted = new Intl.DateTimeFormat('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }).format(lastModified);
+
+      target.textContent = `最終更新日時: ${formatted}`;
+    })();
+  </script>
 
   <script type="module" src="js/app.js"></script>
 </body>
