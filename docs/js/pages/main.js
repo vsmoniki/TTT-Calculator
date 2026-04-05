@@ -2,7 +2,7 @@
 // メイン画面 — フル機能 TTTシミュレーター
 // ・ライダー選択・プル時間・機材設定
 // ・ドラッグ&ドロップ並び替え
-// ・Auto Speed / Auto Order / Auto Optimize
+// ・Auto Order / Auto Optimize
 // ・URLステート復元
 // =============================================
 import { fetchRiders, fetchFrames, fetchWheels } from '../api.js';
@@ -25,7 +25,6 @@ let state = {
   speed: 44,
   draft2: 0.80,
   draftN: 0.75,
-  intensityTarget: 0.85,
   defaultFrameId: null,
   defaultWheelId: null,
 };
@@ -52,16 +51,6 @@ function draftFactorAvg(n) {
   return (state.draft2 + (n - 2) * state.draftN) / (n - 1);
 }
 
-// 均衡 IF（全ライダーのFTP加重で理論的に達成可能な最良 IF）
-function balancedIF(v) {
-  const sorted = sortedMembers();
-  if (sorted.length === 0) return 0;
-  const n    = sorted.length;
-  const dfAvg = draftFactorAvg(n);
-  const sumFtpPerHead = sorted.reduce((s, m) => s + m.rider.ftp_w / calcHeadPower(m, v), 0);
-  return (1 + (n - 1) * dfAvg) / sumFtpPerHead;
-}
-
 function calcResults() {
   const sorted = sortedMembers();
   if (sorted.length === 0) return [];
@@ -77,11 +66,11 @@ function calcResults() {
     const draftPct = Math.round((draftW / m.rider.ftp_w) * 1000) / 10;
     const pullRatio = m.pull_sec / totalPull;
     const avgPower  = headW * (dfAvg + (1 - dfAvg) * pullRatio);
-    const avgIF     = Math.round((avgPower / m.rider.ftp_w) * 1000) / 10;
-    return { m, headW: Math.round(headW), draftW: Math.round(draftW), headPct, draftPct, pullRatio, avgIF };
+    const avgPct    = Math.round((avgPower / m.rider.ftp_w) * 1000) / 10;
+    return { m, headW: Math.round(headW), draftW: Math.round(draftW), headPct, draftPct, pullRatio, avgPct };
   });
 
-  const bottleneck = rows.reduce((max, r) => (r.avgIF > max.avgIF ? r : max), rows[0]);
+  const bottleneck = rows.reduce((max, r) => (r.avgPct > max.avgPct ? r : max), rows[0]);
   rows.forEach((r) => { r.isBottleneck = r === bottleneck; });
   return rows;
 }
@@ -89,28 +78,6 @@ function calcResults() {
 // ============================================================
 // 最適化
 // ============================================================
-
-// 二分法: f(lo)<0, f(hi)>0 を前提に根を求める
-function bisect(f, lo, hi) {
-  for (let i = 0; i < 60; i++) {
-    const mid = (lo + hi) / 2;
-    if (f(mid) > 0) hi = mid; else lo = mid;
-    if (hi - lo < 0.005) break;
-  }
-  return (lo + hi) / 2;
-}
-
-function autoSpeed() {
-  const sorted = sortedMembers();
-  if (sorted.length === 0) return;
-  const target = state.intensityTarget;
-  // balancedIF は速度が上がるほど増加するので lo=5kph, hi=90kph で探索
-  const f = (v) => balancedIF(v) - target;
-  if (f(5 / 3.6) > 0) { alert('目標 IF が低すぎます（5 kph でも超過）。'); return; }
-  if (f(90 / 3.6) < 0) { alert('目標 IF が高すぎます（90 kph でも未達）。'); return; }
-  const vOpt = bisect(f, 5 / 3.6, 90 / 3.6);
-  state.speed = Math.round(vOpt * 3.6 * 10) / 10;
-}
 
 function autoOrder() {
   const sorted = [...state.members].sort((a, b) => b.rider.ftp_w - a.rider.ftp_w);
@@ -120,14 +87,15 @@ function autoOrder() {
 function autoOptimizeFixed() {
   const sorted = sortedMembers();
   if (sorted.length === 0) return;
-  const v     = state.speed / 3.6;
-  const n     = sorted.length;
+  const v = state.speed / 3.6;
+  const n = sorted.length;
   const dfAvg = draftFactorAvg(n);
-  const ifTarget = balancedIF(v);
+  const avgRatioTarget = rowsAverage(sorted.map((m) => m.rider.ftp_w / calcHeadPower(m, v)));
 
   const ratios = sorted.map((m) => {
     const headW = calcHeadPower(m, v);
-    const r = (ifTarget * m.rider.ftp_w / headW - dfAvg) / (1 - dfAvg);
+    const targetAvgPct = 100 / avgRatioTarget;
+    const r = ((targetAvgPct / 100) * m.rider.ftp_w / headW - dfAvg) / (1 - dfAvg);
     return Math.max(0.05, r); // 最低 5% は確保
   });
   const sumR = ratios.reduce((s, r) => s + r, 0);
@@ -136,9 +104,9 @@ function autoOptimizeFixed() {
   });
 }
 
-function autoOptimizeVariable() {
-  autoSpeed();
-  autoOptimizeFixed();
+function rowsAverage(values) {
+  if (values.length === 0) return 1;
+  return values.reduce((s, value) => s + value, 0) / values.length;
 }
 
 // ============================================================
@@ -156,7 +124,6 @@ function applyURLState(decoded) {
   state.speed           = decoded.spd ?? state.speed;
   state.draft2          = decoded.d2  ?? state.draft2;
   state.draftN          = decoded.dN  ?? state.draftN;
-  state.intensityTarget = decoded.it  ?? state.intensityTarget;
   state.members = decoded.m.map((entry) => {
     const rider = state.riders.find((r) => r.id === entry.id);
     if (!rider) return null;
@@ -190,12 +157,6 @@ function reorderMembers() {
 function ftpClass(pct) {
   if (pct >= 110) return 'pct-danger';
   if (pct >= 95)  return 'pct-warn';
-  return '';
-}
-
-function ifClass(ifVal) {
-  if (ifVal >= 1.05) return 'pct-danger';
-  if (ifVal >= state.intensityTarget) return 'pct-warn';
   return '';
 }
 
@@ -279,22 +240,11 @@ function render(container) {
             <label>目標速度 (kph)</label>
             <input type="number" id="m-speed" value="${state.speed}" step="0.5" min="1" max="100" />
           </div>
-          <div class="form-group">
-            <label>強度ターゲット (IF)</label>
-            <select id="m-intensity">
-              <option value="0.80" ${state.intensityTarget===0.80?'selected':''}>0.80 — イージー</option>
-              <option value="0.85" ${state.intensityTarget===0.85?'selected':''}>0.85 — ノーマル</option>
-              <option value="0.90" ${state.intensityTarget===0.90?'selected':''}>0.90 — ハード</option>
-              <option value="0.95" ${state.intensityTarget===0.95?'selected':''}>0.95 — ベリーハード</option>
-            </select>
-          </div>
         </div>
         <!-- 自動化ボタン -->
         <div class="flex gap-8 wrap mt-12">
-          <button class="btn btn-secondary btn-sm" id="m-auto-speed" title="強度ターゲットに合わせて速度を自動計算">⚡ Auto Speed</button>
           <button class="btn btn-secondary btn-sm" id="m-auto-order" title="FTP降順で走順を並び替え">↕ Auto Order</button>
           <button class="btn btn-secondary btn-sm" id="m-opt-fixed"  title="現在の速度でプル時間を最適化">🔧 最適化（速度固定）</button>
-          <button class="btn btn-secondary btn-sm" id="m-opt-var"    title="速度・プル時間をまとめて最適化">🚀 最適化（変速）</button>
         </div>
       </div>
     </div>
@@ -402,7 +352,6 @@ function renderMemberCard(m, idx, total) {
 function renderResults() {
   const rows = calcResults();
   if (rows.length === 0) return '';
-  const bif = balancedIF(state.speed / 3.6);
 
   return `
     <div class="section">
@@ -416,14 +365,6 @@ function renderResults() {
             ${esc(rows.find(r=>r.isBottleneck)?.m.rider.name??'')}
             <span class="tag-bottleneck">BOTTLENECK</span>
           </div>
-        </div>
-        <div>
-          <div class="text-muted text-sm">均衡 IF（理論値）</div>
-          <div class="card-title ${ifClass(bif)}" style="margin-bottom:0">${bif.toFixed(3)}</div>
-        </div>
-        <div>
-          <div class="text-muted text-sm">強度ターゲット</div>
-          <div class="card-title" style="margin-bottom:0">${state.intensityTarget}</div>
         </div>
         <div>
           <div class="text-muted text-sm">最大先頭 FTP%</div>
@@ -440,7 +381,7 @@ function renderResults() {
             <tr>
               <th>順</th><th>ライダー</th><th>プル(秒)</th>
               <th>先頭 W</th><th>後続 W</th>
-              <th>先頭 FTP%</th><th>後続 FTP%</th><th>平均 IF</th>
+              <th>先頭 FTP%</th><th>後続 FTP%</th><th>平均 FTP%</th>
             </tr>
           </thead>
           <tbody>
@@ -456,7 +397,7 @@ function renderResults() {
                 <td>${r.draftW} W</td>
                 <td><span class="${ftpClass(r.headPct)}">${r.headPct}%</span></td>
                 <td><span class="${ftpClass(r.draftPct)}">${r.draftPct}%</span></td>
-                <td><span class="${ifClass(r.avgIF)}">${r.avgIF}</span></td>
+                <td><span class="${ftpClass(r.avgPct)}">${r.avgPct}%</span></td>
               </tr>
             `).join('')}
           </tbody>
@@ -464,7 +405,7 @@ function renderResults() {
       </div>
       <p class="text-muted text-sm mt-8">
         ※ 先頭W = 目標速度を単独維持するための推定パワー。後続W = ドラフト恩恵を加味した推定パワー。<br>
-        ※ 平均IF = ローテーション中の平均強度。強度ターゲット(${state.intensityTarget})超えは<span class="pct-warn">橙</span>/<span class="pct-danger">赤</span>で警告。
+        ※ 平均FTP% = ローテーション中の平均強度。95%以上は<span class="pct-warn">橙</span>/<span class="pct-danger">赤</span>で警告。
       </p>
 
     </div>
@@ -481,24 +422,13 @@ function bindEvents(container) {
     const v = parseFloat(e.target.value);
     if (!isNaN(v) && v > 0) { state.speed = v; refreshResults(); }
   });
-  document.getElementById('m-intensity')?.addEventListener('change', (e) => {
-    state.intensityTarget = parseFloat(e.target.value);
-    refreshResults();
-  });
 
   // 自動化ボタン
-  document.getElementById('m-auto-speed')?.addEventListener('click', () => {
-    autoSpeed(); render(container); showToast(`速度を ${state.speed} kph に設定しました`);
-  });
   document.getElementById('m-auto-order')?.addEventListener('click', () => {
     autoOrder(); render(container); showToast('FTP降順で並び替えました');
   });
   document.getElementById('m-opt-fixed')?.addEventListener('click', () => {
     autoOptimizeFixed(); render(container); showToast('プル時間を最適化しました');
-  });
-  document.getElementById('m-opt-var')?.addEventListener('click', () => {
-    autoOptimizeVariable(); render(container);
-    showToast(`速度 ${state.speed} kph・プル時間を最適化しました`);
   });
 
   // グローバル関数（innerHTML onXxx 用）
