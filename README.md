@@ -24,7 +24,7 @@ TTT-Calculator/
 │           ├── gear.js      # 機材一覧
 │           ├── teams.js     # チーム管理
 │           ├── lineups.js   # ラインナップ作成
-│           └── simulate.js  # シミュレーション結果
+│           └── main.js      # メインシミュレーター
 └── worker/                  # Cloudflare Workers API
     ├── wrangler.toml
     ├── package.json

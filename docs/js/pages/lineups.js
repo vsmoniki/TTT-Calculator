@@ -245,11 +245,6 @@ async function renderDetail(container) {
           '<p class="text-muted">メンバーが選択されていません。</p>'}
       </div>
     </div>
-
-    ${memberCount > 0 ? `
-    <div class="mt-16">
-      <button class="btn btn-primary" onclick="location.hash='#/simulate'">シミュレーション画面へ →</button>
-    </div>` : ''}
   `;
 
   bindDetailEvents(container);

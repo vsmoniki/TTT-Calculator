@@ -72,9 +72,6 @@ export const updateLineupMember = (lineupId, memberId, body) => put(`/lineups/${
 export const removeLineupMember = (lineupId, memberId) => del(`/lineups/${lineupId}/members/${memberId}`);
 export const swapLineupMembers  = (lineupId, aId, bId) => post(`/lineups/${lineupId}/members/swap`, { a_id: aId, b_id: bId });
 
-// ---- Simulate ----
-export const simulate = (body) => post('/simulate', body);
-
 // ---- Auth ----
 export const apiLogin = (password) => post('/auth', { password });
 
