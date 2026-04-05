@@ -57,25 +57,20 @@ function getSelectableEquipments() {
   const defaultFrameId = findDefaultGearId(state.frames, defaultFrameCandidates());
   const defaultWheelId = findDefaultGearId(state.wheels, defaultWheelCandidates());
   const tronFrameId = findTronFrameId(state.frames);
-  const equipments = [];
-
-  if (defaultFrameId && defaultWheelId) {
-    equipments.push({
+  return [
+    {
       key: 'cadex_dt85',
       label: 'Cadex Tri × DT Swiss ARC 1100 DICUT 85/Disc',
       frame_id: defaultFrameId,
       wheel_id: defaultWheelId,
-    });
-  }
-  if (tronFrameId) {
-    equipments.push({
+    },
+    {
       key: 'tron',
       label: 'Zwift Concept Z1 (Tron)',
       frame_id: tronFrameId,
       wheel_id: null,
-    });
-  }
-  return equipments;
+    },
+  ];
 }
 
 export async function renderLineups(container) {
@@ -293,7 +288,6 @@ function renderMemberCard(m, idx, total) {
         <div class="form-group" style="margin:0">
           <label>機材</label>
           <select id="equipment-sel-${m.id}" onchange="saveGear(${m.id})">
-            <option value="">— なし —</option>
             ${selectableEquipments.map((eq) => `<option value="${eq.key}" ${selectedEquipment?.key === eq.key ? 'selected' : ''}>${esc(eq.label)}</option>`).join('')}
           </select>
         </div>

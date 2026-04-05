@@ -249,24 +249,20 @@ function findTronFrameId(frames) {
 
 function getSelectableEquipments() {
   const tronFrameId = findTronFrameId(state.frames);
-  const equipments = [];
-  if (state.defaultFrameId && state.defaultWheelId) {
-    equipments.push({
+  return [
+    {
       key: 'cadex_dt85',
       label: 'Cadex Tri × DT Swiss ARC 1100 DICUT 85/Disc',
       frameId: state.defaultFrameId,
       wheelId: state.defaultWheelId,
-    });
-  }
-  if (tronFrameId) {
-    equipments.push({
+    },
+    {
       key: 'tron',
       label: 'Zwift Concept Z1 (Tron)',
       frameId: tronFrameId,
       wheelId: null,
-    });
-  }
-  return equipments;
+    },
+  ];
 }
 
 function getInitialEquipmentSelection() {
@@ -285,7 +281,7 @@ function getInitialEquipmentSelection() {
 export async function renderMain(container) {
   const [riders, frames, wheels, settings] = await Promise.all([fetchRiders(), fetchFrames(), fetchWheels(), fetchSettings()]);
   const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
-  const defaultFrameCandidates = [mergedSettings.default_frame_name, 'Cadex Tri', 'Canyon Aeroad 2021'];
+  const defaultFrameCandidates = [mergedSettings.default_frame_name, 'Cadex Tri', 'CADEX tri', 'Canyon Aeroad 2021'];
   const defaultWheelCandidates = [mergedSettings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
   const defaultFrameId = findDefaultGearId(frames, defaultFrameCandidates);
   const defaultWheelId = findDefaultGearId(wheels, defaultWheelCandidates);
@@ -405,7 +401,6 @@ function renderMemberCard(m, idx, total) {
         <div class="form-group" style="margin:0">
           <label>機材</label>
           <select id="m-equipment-${m.rider.id}" onchange="mainUpdateGear(${m.rider.id})">
-            <option value="">— なし —</option>
             ${selectableEquipments.map((eq)=>`<option value="${eq.key}" ${eq.key===selectedEquipment?.key?'selected':''}>${esc(eq.label)}</option>`).join('')}
           </select>
         </div>
