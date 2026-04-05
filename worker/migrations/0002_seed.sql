@@ -47,6 +47,18 @@ INSERT INTO routes (name, world, distance_km, elevation_m, profile_points_json, 
 
 INSERT INTO frames (name, bike_type, drop_shop_price, level_required, aero_score, climb_score, flat_delta_sec, climb_delta_sec, source_name, source_url) VALUES
 (
+  'Cadex Tri',
+  'tt',
+  1500000,
+  5,
+  9.9,
+  5.0,
+  -74.0,
+  -16.0,
+  'ZwifterBikes',
+  'https://zwifterbikes.web.app/'
+),
+(
   'Zwift Concept Z1 (Tron)',
   'road',
   NULL,
@@ -88,6 +100,17 @@ INSERT INTO frames (name, bike_type, drop_shop_price, level_required, aero_score
 -- ----------------------------------------
 
 INSERT INTO wheels (name, drop_shop_price, level_required, aero_score, climb_score, flat_delta_sec, climb_delta_sec, source_name, source_url) VALUES
+(
+  'DT Swiss ARC 1100 DICUT 85/Disc',
+  1000000,
+  5,
+  9.8,
+  4.2,
+  -34.0,
+  -7.0,
+  'ZwifterBikes',
+  'https://zwifterbikes.web.app/'
+),
 (
   'Zipp 808/Super-9 Disc',
   182500,
@@ -153,6 +176,6 @@ INSERT INTO lineups (team_id, name, route_id, target_speed_kph, notes) VALUES
 
 -- lineup_members（lineup_id=1）
 INSERT INTO lineup_members (lineup_id, rider_id, frame_id, wheel_id, order_index) VALUES
-(1, 2, 2, 1, 1),  -- Bob: 先頭, Venge + Zipp808
-(1, 1, 1, 2, 2),  -- Alice: 2番手, Tron + Zipp404
-(1, 3, 3, 3, 3);  -- Carol: 3番手以降, Aeroad + DT Swiss
+(1, 2, 1, 1, 1),  -- Bob: 先頭, Cadex Tri + ARC1100
+(1, 1, 2, 3, 2),  -- Alice: 2番手, Tron + Zipp404
+(1, 3, 4, 4, 3);  -- Carol: 3番手以降, Aeroad + DT Swiss 62

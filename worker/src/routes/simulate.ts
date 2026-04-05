@@ -37,6 +37,10 @@ const G = 9.80665;
 // Cd 初期近似
 const ROAD_CD = 0.63;
 const TT_CD = 0.55;
+// 機材の平坦性能差（flat_delta_sec）をCdA倍率へ換算する係数
+// 1 lap (Tempus Fugit 25:58=1558s) を基準に、ΔCdA/CdA ≈ 3 * Δt/t で近似
+const EQUIPMENT_REFERENCE_TIME_SEC = 1558;
+const EQUIPMENT_CDA_SENSITIVITY = 3;
 // ドラフト CdA 係数（後続）
 const DEFAULT_DRAFT_CDA_MULTIPLIER = 0.715;
 // 身長未設定時の代替値 [m]
@@ -53,7 +57,9 @@ interface MemberWithDetails {
   ftp_w: number;
   bike_type: string | null;
   frame_aero_score: number | null;
+  frame_flat_delta_sec: number | null;
   wheel_aero_score: number | null;
+  wheel_flat_delta_sec: number | null;
 }
 
 function getRiderHeightM(member: MemberWithDetails): number {
@@ -78,6 +84,20 @@ function calcBaseCdA(member: MemberWithDetails): number {
   const area = calcFrontalArea(member);
   const cd = isTtBike(member) ? TT_CD : ROAD_CD;
   return cd * area;
+}
+
+function calcEquipmentCdAMultiplier(member: MemberWithDetails): number {
+  const frameFlatDeltaSec = Number(member.frame_flat_delta_sec ?? NaN);
+  const wheelFlatDeltaSec = Number(member.wheel_flat_delta_sec ?? NaN);
+  const hasFlatDelta = Number.isFinite(frameFlatDeltaSec) || Number.isFinite(wheelFlatDeltaSec);
+
+  const flatDeltaSec = hasFlatDelta
+    ? (Number.isFinite(frameFlatDeltaSec) ? frameFlatDeltaSec : 0)
+      + (Number.isFinite(wheelFlatDeltaSec) ? wheelFlatDeltaSec : 0)
+    : -(((member.frame_aero_score ?? 5) - 5) * 4 + ((member.wheel_aero_score ?? 5) - 5) * 4);
+
+  const multiplier = 1 + (EQUIPMENT_CDA_SENSITIVITY * flatDeltaSec) / EQUIPMENT_REFERENCE_TIME_SEC;
+  return Math.max(0.7, Math.min(1.3, multiplier));
 }
 
 function calcRequiredPower(v: number, massKg: number, gradeRatio: number, effectiveCdA: number): number {
@@ -148,7 +168,9 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
       r.ftp_w,
       f.bike_type,
       f.aero_score AS frame_aero_score,
-      w.aero_score AS wheel_aero_score
+      f.flat_delta_sec AS frame_flat_delta_sec,
+      w.aero_score AS wheel_aero_score,
+      w.flat_delta_sec AS wheel_flat_delta_sec
     FROM lineup_members lm
     JOIN riders r ON r.id = lm.rider_id
     LEFT JOIN frames f ON f.id = lm.frame_id
@@ -172,9 +194,10 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
   const results = members.map((m) => {
     const totalMassKg = m.weight_kg + BIKE_KG;
     const baseCdA = calcBaseCdA(m);
+    const adjustedCdA = baseCdA * calcEquipmentCdAMultiplier(m);
 
-    const headW = calcRequiredPower(v, totalMassKg, gradeRatio, baseCdA);
-    const draftCdA = baseCdA * calcDraftMultiplier(m, draft_factor_second, draft_factor_other);
+    const headW = calcRequiredPower(v, totalMassKg, gradeRatio, adjustedCdA);
+    const draftCdA = adjustedCdA * calcDraftMultiplier(m, draft_factor_second, draft_factor_other);
     const draftW = calcRequiredPower(v, totalMassKg, gradeRatio, draftCdA);
 
     return {
