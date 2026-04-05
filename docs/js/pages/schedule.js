@@ -13,22 +13,6 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function formatDateTime(iso) {
-  if (!iso) return '---';
-  const dt = new Date(iso);
-  if (Number.isNaN(dt.getTime())) return iso;
-  return new Intl.DateTimeFormat('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-    timeZoneName: 'short',
-  }).format(dt);
-}
-
 function toDateLabel(value) {
   if (!value) return '-';
   return value;
@@ -97,20 +81,16 @@ function renderRows(list) {
 
 export async function renderSchedule(container) {
   const list = loadManualSchedule();
-  let updatedAt = nowIso();
 
   const render = () => {
     const sorted = [...list].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
     container.innerHTML = `
       <section class="page-header">
-        <h2 class="page-title">WTRL TTT スケジュール（手動管理）</h2>
+        <h2 class="page-title">WTRL TTT スケジュール</h2>
       </section>
 
       <section class="card">
-        <p class="text-sm text-muted">自動取得は無効化しました。必要なイベントを手動で登録してください。</p>
-        <p id="schedule-updated" class="text-sm text-muted mt-8">最終更新: ${escapeHtml(formatDateTime(updatedAt))}</p>
-
         <div class="form-row mt-12">
           <div class="form-group">
             <label for="schedule-date">日付</label>
@@ -160,7 +140,6 @@ export async function renderSchedule(container) {
       }));
 
       saveManualSchedule(list);
-      updatedAt = nowIso();
       render();
     });
 
@@ -171,7 +150,6 @@ export async function renderSchedule(container) {
         if (idx < 0) return;
         list.splice(idx, 1);
         saveManualSchedule(list);
-        updatedAt = nowIso();
         render();
       });
     });
