@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
   default_height_m: 1.75,
   default_frame_name: 'CADEX tri',
   default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
+  equipment_preset: 'tri_dtswiss',
   default_frame_flat_delta_sec: 0,
   default_wheel_flat_delta_sec: 0,
 };
@@ -41,7 +42,7 @@ const NUMERIC_KEYS = [
   'default_wheel_flat_delta_sec',
 ] as const;
 
-const STRING_KEYS = ['default_frame_name', 'default_wheel_name'] as const;
+const STRING_KEYS = ['default_frame_name', 'default_wheel_name', 'equipment_preset'] as const;
 
 function toSettings(row: AppSettingsRow | null): Settings {
   if (!row?.settings_json) return { ...DEFAULT_SETTINGS };
@@ -85,6 +86,9 @@ function validateNumericField(key: (typeof NUMERIC_KEYS)[number], value: unknown
 function validateStringField(key: (typeof STRING_KEYS)[number], value: unknown): string | null {
   if (typeof value !== 'string') return `${key} must be a string`;
   if (!value.trim()) return `${key} must not be empty`;
+  if (key === 'equipment_preset' && !['tri_dtswiss', 'tron'].includes(value.trim())) {
+    return `${key} must be one of tri_dtswiss, tron`;
+  }
   return null;
 }
 

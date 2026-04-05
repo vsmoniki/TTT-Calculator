@@ -8,12 +8,12 @@ const DEFAULT_SETTINGS = {
   draft_factor_6: 0.75,
   draft_factor_7: 0.75,
   draft_factor_8: 0.75,
-  rho: 1.225,
   road_cd: 0.63,
   tt_cd: 0.55,
   cda_calibration_multiplier: 0.76,
   equipment_reference_time_sec: 1668,
   default_height_m: 1.75,
+  equipment_preset: 'tri_dtswiss',
 };
 
 export async function renderAdmin(container) {
@@ -22,7 +22,7 @@ export async function renderAdmin(container) {
   container.innerHTML = `
     <div class="page-header">
       <h2 class="page-title">管理</h2>
-      <span class="text-muted text-sm">ドラフト係数・計算定数を編集</span>
+      <span class="text-muted text-sm">ドラフト係数・計算定数・機材セットを編集</span>
     </div>
 
     <div class="section">
@@ -38,9 +38,6 @@ export async function renderAdmin(container) {
           <div class="form-group"><label>6番手ドラフト係数</label><input type="number" step="0.01" id="s-draft6" value="${settings.draft_factor_6}" /></div>
           <div class="form-group"><label>7番手ドラフト係数</label><input type="number" step="0.01" id="s-draft7" value="${settings.draft_factor_7}" /></div>
           <div class="form-group"><label>8番手ドラフト係数</label><input type="number" step="0.01" id="s-draft8" value="${settings.draft_factor_8}" /></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>空気密度 ρ</label><input type="number" step="0.001" id="s-rho" value="${settings.rho}" /></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Road Cd</label><input type="number" step="0.01" id="s-road-cd" value="${settings.road_cd}" /></div>
@@ -59,9 +56,29 @@ export async function renderAdmin(container) {
         <p class="text-muted text-sm mt-8" id="s-msg"></p>
       </div>
     </div>
+
+    <div class="section">
+      <div class="section-title">機材設定</div>
+      <div class="card">
+        <div class="form-row">
+          <div class="form-group">
+            <label>使用セット</label>
+            <select id="s-gear-preset">
+              <option value="tri_dtswiss" ${settings.equipment_preset === 'tri_dtswiss' ? 'selected' : ''}>Tri &amp; DTswiss セット</option>
+              <option value="tron" ${settings.equipment_preset === 'tron' ? 'selected' : ''}>Tron</option>
+            </select>
+          </div>
+        </div>
+        <p class="text-muted text-sm">※ シミュレーション画面・ラインナップ画面の初期機材に反映されます。</p>
+      </div>
+    </div>
   `;
 
   container.querySelector('#s-save')?.addEventListener('click', async () => {
+    const equipmentPreset = container.querySelector('#s-gear-preset')?.value === 'tron' ? 'tron' : 'tri_dtswiss';
+    const presetDefaults = equipmentPreset === 'tron'
+      ? { default_frame_name: 'Zwift Concept Z1 (Tron)', default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc' }
+      : { default_frame_name: 'CADEX tri', default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc' };
     const payload = {
       draft_factor_2: valNum(container, '#s-draft2'),
       draft_factor_3: valNum(container, '#s-draft3'),
@@ -70,12 +87,13 @@ export async function renderAdmin(container) {
       draft_factor_6: valNum(container, '#s-draft6'),
       draft_factor_7: valNum(container, '#s-draft7'),
       draft_factor_8: valNum(container, '#s-draft8'),
-      rho: valNum(container, '#s-rho'),
       road_cd: valNum(container, '#s-road-cd'),
       tt_cd: valNum(container, '#s-tt-cd'),
       cda_calibration_multiplier: valNum(container, '#s-cda-cal'),
       equipment_reference_time_sec: valNum(container, '#s-eq-ref'),
       default_height_m: valNum(container, '#s-height'),
+      equipment_preset: equipmentPreset,
+      ...presetDefaults,
     };
 
     const msg = container.querySelector('#s-msg');
@@ -108,12 +126,12 @@ function renderWithSettings(container, settings) {
       draft_factor_6: '#s-draft6',
       draft_factor_7: '#s-draft7',
       draft_factor_8: '#s-draft8',
-      rho: '#s-rho',
       road_cd: '#s-road-cd',
       tt_cd: '#s-tt-cd',
       cda_calibration_multiplier: '#s-cda-cal',
       equipment_reference_time_sec: '#s-eq-ref',
       default_height_m: '#s-height',
+      equipment_preset: '#s-gear-preset',
     };
     const selector = map[key];
     if (!selector) return;

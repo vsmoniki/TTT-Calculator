@@ -197,6 +197,7 @@ export interface UpdateSettingsBody {
   default_height_m?: number;
   default_frame_name?: string;
   default_wheel_name?: string;
+  equipment_preset?: 'tri_dtswiss' | 'tron';
   default_frame_flat_delta_sec?: number;
   default_wheel_flat_delta_sec?: number;
 }
