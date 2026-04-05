@@ -1,12 +1,19 @@
 import { Env } from '../types';
-import { ok, serverError } from '../response';
+import { ok } from '../response';
 
-const WTRL_TTT_URL = 'https://www.wtrl.racing/ttt-home/#tttschedule';
+const WTRL_TTT_URL = 'https://www.wtrl.racing/ttt-home/';
+const WTRL_TTT_PUBLIC_URL = 'https://www.wtrl.racing/ttt-home/#tttschedule';
+const FETCH_TIMEOUT_MS = 12000;
 
 interface ScheduleSpecial {
   date: string;
   title: string;
   raw: string;
+}
+
+interface FetchAttemptResult {
+  html: string;
+  fetchedFrom: string;
 }
 
 function parseUpcomingSpecials(html: string): ScheduleSpecial[] {
@@ -84,32 +91,62 @@ function parseUpcomingSpecials(html: string): ScheduleSpecial[] {
   return results.slice(0, 12);
 }
 
-export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Response> {
+async function fetchScheduleHtml(url: string): Promise<FetchAttemptResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
   try {
-    const upstream = await fetch(WTRL_TTT_URL, {
+    const upstream = await fetch(url, {
       headers: {
-        // 一部サイトは非ブラウザUAをブロック/簡略化するため、一般的なUAを使う
-        'User-Agent': 'Mozilla/5.0 (compatible; TTT-Calculator/1.0; +https://github.com/)',
-        'Accept': 'text/html,application/xhtml+xml',
+        Accept: 'text/html,application/xhtml+xml',
         'Accept-Language': 'en-US,en;q=0.9,ja;q=0.8',
-      }
+      },
+      redirect: 'follow',
+      signal: controller.signal,
     });
 
     if (!upstream.ok) {
-      return serverError(`Failed to fetch WTRL schedule (${upstream.status})`);
+      throw new Error(`upstream status ${upstream.status}`);
     }
 
-    const html = await upstream.text();
-    const specials = parseUpcomingSpecials(html);
-
-    return ok({
-      source_url: WTRL_TTT_URL,
-      fetched_at: new Date().toISOString(),
-      specials,
-      has_data: specials.length > 0,
-    });
-  } catch (err) {
-    console.error('WTRL schedule fetch error', err);
-    return serverError('Failed to fetch WTRL schedule');
+    return {
+      html: await upstream.text(),
+      fetchedFrom: upstream.url || url,
+    };
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+export async function getWtrlSchedule(_request: Request, _env: Env): Promise<Response> {
+  const errors: string[] = [];
+
+  for (const candidateUrl of [WTRL_TTT_URL, WTRL_TTT_PUBLIC_URL]) {
+    try {
+      const { html, fetchedFrom } = await fetchScheduleHtml(candidateUrl);
+      const specials = parseUpcomingSpecials(html);
+
+      return ok({
+        source_url: WTRL_TTT_PUBLIC_URL,
+        fetched_from: fetchedFrom,
+        fetched_at: new Date().toISOString(),
+        specials,
+        has_data: specials.length > 0,
+        fetch_error: null,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push(`${candidateUrl}: ${message}`);
+      console.error('WTRL schedule fetch attempt failed', candidateUrl, err);
+    }
+  }
+
+  return ok({
+    source_url: WTRL_TTT_PUBLIC_URL,
+    fetched_from: null,
+    fetched_at: new Date().toISOString(),
+    specials: [],
+    has_data: false,
+    fetch_error: `WTRL schedule fetch failed (${errors.join(' | ')})`,
+  });
 }
