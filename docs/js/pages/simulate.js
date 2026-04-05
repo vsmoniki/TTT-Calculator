@@ -37,16 +37,6 @@ export async function renderSimulate(container) {
             <label>目標速度 (kph) *</label>
             <input type="number" id="sim-speed" placeholder="例: 45" step="0.5" value="45" />
           </div>
-          <div class="form-group">
-            <label>ドラフト係数: 2番手</label>
-            <input type="number" id="sim-draft2" placeholder="0.80" step="0.01" min="0" max="1" value="0.80" />
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>ドラフト係数: 3番手以降</label>
-            <input type="number" id="sim-draftN" placeholder="0.75" step="0.01" min="0" max="1" value="0.75" />
-          </div>
         </div>
         <div id="sim-error" class="error-msg" style="display:none"></div>
         <button class="btn btn-primary" id="sim-run">シミュレーション実行</button>
@@ -65,8 +55,6 @@ export async function renderSimulate(container) {
     const lineupId = parseInt(document.getElementById('sim-lineup-id').value);
     const routeId  = parseInt(document.getElementById('sim-route').value);
     const speed    = parseFloat(document.getElementById('sim-speed').value);
-    const draft2   = parseFloat(document.getElementById('sim-draft2').value);
-    const draftN   = parseFloat(document.getElementById('sim-draftN').value);
 
     if (!lineupId || !routeId || !speed) {
       errEl.textContent = 'ラインナップID・コース・目標速度は必須です。'; errEl.style.display = 'block'; return;
@@ -80,8 +68,6 @@ export async function renderSimulate(container) {
         lineup_id: lineupId,
         route_id:  routeId,
         target_speed_kph: speed,
-        draft_factor_second: isNaN(draft2) ? 0.80 : draft2,
-        draft_factor_other:  isNaN(draftN) ? 0.75 : draftN,
       });
       renderResult(resultEl, data, routes);
     } catch (e) {
