@@ -9,14 +9,11 @@ const DEFAULT_SETTINGS = {
   draft_factor_6: 0.75,
   draft_factor_7: 0.75,
   draft_factor_8: 0.75,
-  bike_kg: 8,
   rho: 1.225,
-  crr: 0.004,
   road_cd: 0.63,
   tt_cd: 0.55,
   cda_calibration_multiplier: 0.76,
   equipment_reference_time_sec: 1668,
-  equipment_cda_sensitivity: 3,
   default_height_m: 1.75,
   default_frame_name: 'CADEX tri',
   default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
@@ -34,14 +31,11 @@ const NUMERIC_KEYS = [
   'draft_factor_6',
   'draft_factor_7',
   'draft_factor_8',
-  'bike_kg',
   'rho',
-  'crr',
   'road_cd',
   'tt_cd',
   'cda_calibration_multiplier',
   'equipment_reference_time_sec',
-  'equipment_cda_sensitivity',
   'default_height_m',
   'default_frame_flat_delta_sec',
   'default_wheel_flat_delta_sec',
@@ -79,10 +73,10 @@ function toSettings(row: AppSettingsRow | null): Settings {
 function validateNumericField(key: (typeof NUMERIC_KEYS)[number], value: unknown): string | null {
   if (typeof value !== 'number' || Number.isNaN(value)) return `${key} must be a number`;
   if (key.startsWith('draft_factor_') && (value <= 0 || value > 1.2)) return `${key} must be between 0 and 1.2`;
-  if ((key === 'bike_kg' || key === 'rho' || key === 'road_cd' || key === 'tt_cd' || key === 'default_height_m') && value <= 0) {
+  if ((key === 'rho' || key === 'road_cd' || key === 'tt_cd' || key === 'default_height_m') && value <= 0) {
     return `${key} must be positive`;
   }
-  if ((key === 'crr' || key === 'cda_calibration_multiplier' || key === 'equipment_reference_time_sec') && value <= 0) {
+  if ((key === 'cda_calibration_multiplier' || key === 'equipment_reference_time_sec') && value <= 0) {
     return `${key} must be positive`;
   }
   return null;

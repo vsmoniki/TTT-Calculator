@@ -8,14 +8,11 @@ const DEFAULT_SETTINGS = {
   draft_factor_6: 0.75,
   draft_factor_7: 0.75,
   draft_factor_8: 0.75,
-  bike_kg: 8,
   rho: 1.225,
-  crr: 0.004,
   road_cd: 0.63,
   tt_cd: 0.55,
   cda_calibration_multiplier: 0.76,
   equipment_reference_time_sec: 1668,
-  equipment_cda_sensitivity: 3,
   default_height_m: 1.75,
 };
 
@@ -43,9 +40,7 @@ export async function renderAdmin(container) {
           <div class="form-group"><label>8番手ドラフト係数</label><input type="number" step="0.01" id="s-draft8" value="${settings.draft_factor_8}" /></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Bike重量 (kg)</label><input type="number" step="0.1" id="s-bike" value="${settings.bike_kg}" /></div>
           <div class="form-group"><label>空気密度 ρ</label><input type="number" step="0.001" id="s-rho" value="${settings.rho}" /></div>
-          <div class="form-group"><label>Crr</label><input type="number" step="0.0001" id="s-crr" value="${settings.crr}" /></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Road Cd</label><input type="number" step="0.01" id="s-road-cd" value="${settings.road_cd}" /></div>
@@ -54,7 +49,6 @@ export async function renderAdmin(container) {
         </div>
         <div class="form-row">
           <div class="form-group"><label>機材基準タイム(sec)</label><input type="number" step="1" id="s-eq-ref" value="${settings.equipment_reference_time_sec}" /></div>
-          <div class="form-group"><label>機材感度</label><input type="number" step="0.1" id="s-eq-sens" value="${settings.equipment_cda_sensitivity}" /></div>
           <div class="form-group"><label>デフォルト身長(m)</label><input type="number" step="0.01" id="s-height" value="${settings.default_height_m}" /></div>
         </div>
 
@@ -76,14 +70,11 @@ export async function renderAdmin(container) {
       draft_factor_6: valNum(container, '#s-draft6'),
       draft_factor_7: valNum(container, '#s-draft7'),
       draft_factor_8: valNum(container, '#s-draft8'),
-      bike_kg: valNum(container, '#s-bike'),
       rho: valNum(container, '#s-rho'),
-      crr: valNum(container, '#s-crr'),
       road_cd: valNum(container, '#s-road-cd'),
       tt_cd: valNum(container, '#s-tt-cd'),
       cda_calibration_multiplier: valNum(container, '#s-cda-cal'),
       equipment_reference_time_sec: valNum(container, '#s-eq-ref'),
-      equipment_cda_sensitivity: valNum(container, '#s-eq-sens'),
       default_height_m: valNum(container, '#s-height'),
     };
 
@@ -117,14 +108,11 @@ function renderWithSettings(container, settings) {
       draft_factor_6: '#s-draft6',
       draft_factor_7: '#s-draft7',
       draft_factor_8: '#s-draft8',
-      bike_kg: '#s-bike',
       rho: '#s-rho',
-      crr: '#s-crr',
       road_cd: '#s-road-cd',
       tt_cd: '#s-tt-cd',
       cda_calibration_multiplier: '#s-cda-cal',
       equipment_reference_time_sec: '#s-eq-ref',
-      equipment_cda_sensitivity: '#s-eq-sens',
       default_height_m: '#s-height',
     };
     const selector = map[key];

@@ -8,7 +8,6 @@
 import { fetchRiders, fetchFrames, fetchWheels, fetchSettings } from '../api.js';
 
 // ---- 物理定数 ----
-const AERO_BASE = 5.0;
 const G         = 9.81;
 const DEFAULT_SETTINGS = {
   draft_factor_2: 0.8,
@@ -18,14 +17,11 @@ const DEFAULT_SETTINGS = {
   draft_factor_6: 0.75,
   draft_factor_7: 0.75,
   draft_factor_8: 0.75,
-  bike_kg: 8,
   rho: 1.225,
-  crr: 0.004,
   road_cd: 0.63,
   tt_cd: 0.55,
   cda_calibration_multiplier: 0.76,
   equipment_reference_time_sec: 1668,
-  equipment_cda_sensitivity: 3,
   default_height_m: 1.75,
   default_frame_name: 'CADEX tri',
   default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
@@ -54,8 +50,7 @@ function calcHeadPower(member, v) {
   const wheel = state.wheels.find((w) => w.id === member.wheelId);
   const cda  = calcAdjustedCdA(member, frame, wheel);
   const fAero = 0.5 * state.settings.rho * cda * v * v;
-  const fRoll = state.settings.crr * (member.rider.weight_kg + state.settings.bike_kg) * G;
-  return (fAero + fRoll) * v;
+  return fAero * v;
 }
 
 function getRiderHeightM(member) {
@@ -80,19 +75,8 @@ function calcBaseCdA(member, frame) {
   return cd * calcFrontalArea(member, frame) * state.settings.cda_calibration_multiplier;
 }
 
-function calcEquipmentCdAMultiplier(frame, wheel) {
-  const frameFlatDeltaSec = Number(frame?.flat_delta_sec ?? state.settings.default_frame_flat_delta_sec);
-  const wheelFlatDeltaSec = Number(wheel?.flat_delta_sec ?? state.settings.default_wheel_flat_delta_sec);
-  const hasFlatDelta = Number.isFinite(frameFlatDeltaSec) || Number.isFinite(wheelFlatDeltaSec);
-
-  const flatDeltaSec = hasFlatDelta
-    ? (Number.isFinite(frameFlatDeltaSec) ? frameFlatDeltaSec : 0)
-      + (Number.isFinite(wheelFlatDeltaSec) ? wheelFlatDeltaSec : 0)
-    : -(((Number(frame?.aero_score ?? AERO_BASE) - AERO_BASE) * 4)
-      + ((Number(wheel?.aero_score ?? AERO_BASE) - AERO_BASE) * 4));
-
-  const multiplier = 1 + (state.settings.equipment_cda_sensitivity * flatDeltaSec) / state.settings.equipment_reference_time_sec;
-  return Math.max(0.7, Math.min(1.3, multiplier));
+function calcEquipmentCdAMultiplier() {
+  return 1;
 }
 
 function calcAdjustedCdA(member, frame, wheel) {

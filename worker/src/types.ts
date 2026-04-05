@@ -189,14 +189,11 @@ export interface UpdateSettingsBody {
   draft_factor_6?: number;
   draft_factor_7?: number;
   draft_factor_8?: number;
-  bike_kg?: number;
   rho?: number;
-  crr?: number;
   road_cd?: number;
   tt_cd?: number;
   cda_calibration_multiplier?: number;
   equipment_reference_time_sec?: number;
-  equipment_cda_sensitivity?: number;
   default_height_m?: number;
   default_frame_name?: string;
   default_wheel_name?: string;

@@ -6,7 +6,6 @@ import { Env, AppSettingsRow, SimulateBody } from '../types';
 import { ok, badRequest, notFound } from '../response';
 
 const G = 9.80665;
-const AERO_BASE = 5;
 
 const DEFAULT_SETTINGS = {
   draft_factor_2: 0.8,
@@ -16,14 +15,11 @@ const DEFAULT_SETTINGS = {
   draft_factor_6: 0.75,
   draft_factor_7: 0.75,
   draft_factor_8: 0.75,
-  bike_kg: 8,
   rho: 1.225,
-  crr: 0.004,
   road_cd: 0.63,
   tt_cd: 0.55,
   cda_calibration_multiplier: 0.76,
   equipment_reference_time_sec: 1668,
-  equipment_cda_sensitivity: 3,
   default_height_m: 1.75,
 };
 
@@ -95,19 +91,8 @@ function calcBaseCdA(member: MemberWithDetails, settings: SimulationSettings): n
   return cd * area * settings.cda_calibration_multiplier;
 }
 
-function calcEquipmentCdAMultiplier(member: MemberWithDetails, settings: SimulationSettings): number {
-  const frameFlatDeltaSec = Number(member.frame_flat_delta_sec ?? NaN);
-  const wheelFlatDeltaSec = Number(member.wheel_flat_delta_sec ?? NaN);
-  const hasFlatDelta = Number.isFinite(frameFlatDeltaSec) || Number.isFinite(wheelFlatDeltaSec);
-
-  const flatDeltaSec = hasFlatDelta
-    ? (Number.isFinite(frameFlatDeltaSec) ? frameFlatDeltaSec : 0)
-      + (Number.isFinite(wheelFlatDeltaSec) ? wheelFlatDeltaSec : 0)
-    : -(((member.frame_aero_score ?? AERO_BASE) - AERO_BASE) * 4
-      + ((member.wheel_aero_score ?? AERO_BASE) - AERO_BASE) * 4);
-
-  const multiplier = 1 + (settings.equipment_cda_sensitivity * flatDeltaSec) / settings.equipment_reference_time_sec;
-  return Math.max(0.7, Math.min(1.3, multiplier));
+function calcEquipmentCdAMultiplier(_member: MemberWithDetails, _settings: SimulationSettings): number {
+  return 1;
 }
 
 function calcRequiredPower(
@@ -118,9 +103,8 @@ function calcRequiredPower(
   settings: SimulationSettings
 ): number {
   const pGravity = massKg * G * v * Math.sin(Math.atan(gradeRatio));
-  const pRoll = massKg * G * v * settings.crr;
   const pAero = 0.5 * settings.rho * effectiveCdA * Math.pow(v, 3);
-  return pGravity + pRoll + pAero;
+  return pGravity + pAero;
 }
 
 function calcDraftMultiplier(member: MemberWithDetails, settings: SimulationSettings): number {
@@ -203,7 +187,7 @@ export async function simulate(request: Request, env: Env): Promise<Response> {
   const gradeRatio = calcAverageGradeRatio(route as Record<string, unknown>);
 
   const results = members.map((m) => {
-    const totalMassKg = m.weight_kg + settings.bike_kg;
+    const totalMassKg = m.weight_kg;
     const baseCdA = calcBaseCdA(m, settings);
     const equipmentCdAMultiplier = calcEquipmentCdAMultiplier(m, settings);
     const adjustedCdA = baseCdA * equipmentCdAMultiplier;
