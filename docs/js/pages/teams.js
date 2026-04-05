@@ -66,15 +66,12 @@ function render() {
         ? '<p class="text-muted">ライダーがいません。上のフォームから登録してください。</p>'
         : `<div class="table-wrap"><table>
             <thead><tr>
-              <th>名前</th><th>体重</th><th>FTP</th><th>身長</th><th>メモ</th><th></th>
+              <th>名前</th><th>メモ</th><th></th>
             </tr></thead>
             <tbody>
               ${_allRiders.map((r) => `
                 <tr>
                   <td><strong>${esc(r.name)}</strong></td>
-                  <td>${r.weight_kg} kg</td>
-                  <td>${r.ftp_w} W</td>
-                  <td>${r.height_cm ? r.height_cm + ' cm' : '<span class="text-muted">—</span>'}</td>
                   <td class="text-sm text-muted">${r.notes ? esc(r.notes) : ''}</td>
                   <td style="white-space:nowrap">
                     <button class="btn btn-secondary btn-sm" data-edit-id="${r.id}">編集</button>
