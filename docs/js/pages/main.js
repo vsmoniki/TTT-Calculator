@@ -289,17 +289,6 @@ function render(container) {
             </select>
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>ドラフト係数: 2番手</label>
-            <input type="number" id="m-draft2" value="${state.draft2}" step="0.01" min="0" max="1" />
-          </div>
-          <div class="form-group">
-            <label>ドラフト係数: 3番手以降</label>
-            <input type="number" id="m-draftN" value="${state.draftN}" step="0.01" min="0" max="1" />
-          </div>
-        </div>
-
         <!-- 自動化ボタン -->
         <div class="flex gap-8 wrap mt-12">
           <button class="btn btn-secondary btn-sm" id="m-auto-speed" title="強度ターゲットに合わせて速度を自動計算">⚡ Auto Speed</button>
@@ -491,14 +480,6 @@ function bindEvents(container) {
   document.getElementById('m-speed')?.addEventListener('input', (e) => {
     const v = parseFloat(e.target.value);
     if (!isNaN(v) && v > 0) { state.speed = v; refreshResults(); }
-  });
-  document.getElementById('m-draft2')?.addEventListener('input', (e) => {
-    const v = parseFloat(e.target.value);
-    if (!isNaN(v)) { state.draft2 = v; refreshResults(); }
-  });
-  document.getElementById('m-draftN')?.addEventListener('input', (e) => {
-    const v = parseFloat(e.target.value);
-    if (!isNaN(v)) { state.draftN = v; refreshResults(); }
   });
   document.getElementById('m-intensity')?.addEventListener('change', (e) => {
     state.intensityTarget = parseFloat(e.target.value);
