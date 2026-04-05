@@ -25,6 +25,7 @@ const DEFAULT_SETTINGS = {
   default_height_m: 1.75,
   default_frame_name: 'CADEX tri',
   default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
+  equipment_preset: 'tri_dtswiss',
   default_frame_flat_delta_sec: 0,
   default_wheel_flat_delta_sec: 0,
 };
@@ -245,11 +246,15 @@ function findTronFrameId(frames) {
 }
 
 function getSelectableFrames() {
-  const allowed = new Set([state.defaultFrameId, findTronFrameId(state.frames)].filter(Boolean));
+  const tronId = findTronFrameId(state.frames);
+  const allowed = state.settings.equipment_preset === 'tron'
+    ? new Set([tronId].filter(Boolean))
+    : new Set([state.defaultFrameId, tronId].filter(Boolean));
   return state.frames.filter((f) => allowed.has(f.id));
 }
 
 function getSelectableWheels() {
+  if (state.settings.equipment_preset === 'tron') return [];
   if (!state.defaultWheelId) return [];
   return state.wheels.filter((w) => w.id === state.defaultWheelId);
 }

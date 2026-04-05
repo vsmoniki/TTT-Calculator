@@ -8,6 +8,7 @@ import {
   fetchTeams, fetchRoutes, fetchFrames, fetchWheels, fetchLineups,
   createLineup, fetchLineup, updateLineup,
   addLineupMember, updateLineupMember, removeLineupMember, swapLineupMembers,
+  fetchSettings,
 } from '../api.js';
 
 let state = {
@@ -15,10 +16,12 @@ let state = {
   lineupId: null,
   lineup: null,
   saving: new Set(),
+  settings: {
+    default_frame_name: 'CADEX tri',
+    default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
+    equipment_preset: 'tri_dtswiss',
+  },
 };
-
-const DEFAULT_FRAME_CANDIDATES = ['Cadex Tri', 'CADEX tri', 'Canyon Aeroad 2021'];
-const DEFAULT_WHEEL_CANDIDATES = ['DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
 const TRON_FRAME_CANDIDATES = ['Zwift Concept Z1 (Tron)', 'Tron'];
 
 function normalizeName(name) {
@@ -40,15 +43,26 @@ function findTronFrameId(frames) {
   return findDefaultGearId(frames, TRON_FRAME_CANDIDATES);
 }
 
+function defaultFrameCandidates() {
+  return [state.settings.default_frame_name, 'Cadex Tri', 'CADEX tri', 'Canyon Aeroad 2021'].filter(Boolean);
+}
+
+function defaultWheelCandidates() {
+  return [state.settings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'].filter(Boolean);
+}
+
 function getSelectableFrames() {
-  const defaultFrameId = findDefaultGearId(state.frames, DEFAULT_FRAME_CANDIDATES);
+  const defaultFrameId = findDefaultGearId(state.frames, defaultFrameCandidates());
   const tronFrameId = findTronFrameId(state.frames);
-  const allowed = new Set([defaultFrameId, tronFrameId].filter(Boolean));
+  const allowed = state.settings.equipment_preset === 'tron'
+    ? new Set([tronFrameId].filter(Boolean))
+    : new Set([defaultFrameId, tronFrameId].filter(Boolean));
   return state.frames.filter((f) => allowed.has(f.id));
 }
 
 function getSelectableWheels() {
-  const defaultWheelId = findDefaultGearId(state.wheels, DEFAULT_WHEEL_CANDIDATES);
+  if (state.settings.equipment_preset === 'tron') return [];
+  const defaultWheelId = findDefaultGearId(state.wheels, defaultWheelCandidates());
   if (!defaultWheelId) return [];
   return state.wheels.filter((w) => w.id === defaultWheelId);
 }
@@ -59,10 +73,10 @@ function isTronFrame(frameId) {
 }
 
 export async function renderLineups(container) {
-  const [teams, routes, frames, wheels, lineups] = await Promise.all([
-    fetchTeams(), fetchRoutes(), fetchFrames(), fetchWheels(), fetchLineups(),
+  const [teams, routes, frames, wheels, lineups, settings] = await Promise.all([
+    fetchTeams(), fetchRoutes(), fetchFrames(), fetchWheels(), fetchLineups(), fetchSettings(),
   ]);
-  state = { ...state, teams, routes, frames, wheels, lineups, saving: new Set() };
+  state = { ...state, teams, routes, frames, wheels, lineups, settings: { ...state.settings, ...settings }, saving: new Set() };
 
   const hash = location.hash;
   const match = hash.match(/^#\/lineups\/(\d+)$/);
@@ -318,14 +332,15 @@ function bindDetailEvents(container) {
     } else {
       const usedOrders = new Set((state.lineup.members ?? []).map((m) => m.order_index));
       const nextOrder  = [1,2,3,4,5,6,7,8].find((n) => !usedOrders.has(n)) ?? 1;
-      const defaultFrameId = findDefaultGearId(state.frames, DEFAULT_FRAME_CANDIDATES);
-      const defaultWheelId = findDefaultGearId(state.wheels, DEFAULT_WHEEL_CANDIDATES);
+      const defaultFrameId = findDefaultGearId(state.frames, defaultFrameCandidates());
+      const defaultWheelId = findDefaultGearId(state.wheels, defaultWheelCandidates());
+      const isTronPreset = state.settings.equipment_preset === 'tron';
       try {
         await addLineupMember(state.lineupId, {
           rider_id: riderId,
           order_index: nextOrder,
-          frame_id: defaultFrameId,
-          wheel_id: defaultWheelId,
+          frame_id: isTronPreset ? findTronFrameId(state.frames) : defaultFrameId,
+          wheel_id: isTronPreset ? null : defaultWheelId,
         });
         await renderDetail(container);
       } catch (e) { alert(e.message ?? 'エラーが発生しました'); }
