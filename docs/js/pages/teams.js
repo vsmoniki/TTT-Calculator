@@ -9,6 +9,7 @@ import {
 
 let _container = null;
 let _allRiders = [];
+let _isCreateFormOpen = false;
 
 export async function renderTeams(container) {
   _container = container;
@@ -28,8 +29,9 @@ function render() {
 
     <!-- ライダー登録 -->
     <div class="section">
-      <div class="section-title">新規ライダー登録</div>
-      <div class="card">
+      <div class="section-title">メンバー登録</div>
+      <button class="btn btn-primary" id="rider-open-form" ${_isCreateFormOpen ? 'style="display:none"' : ''}>メンバー登録</button>
+      <div class="card mt-12" id="rider-create-form" ${_isCreateFormOpen ? '' : 'style="display:none"'}>
         <div class="form-row">
           <div class="form-group">
             <label>名前 *</label>
@@ -55,7 +57,10 @@ function render() {
           <input type="text" id="rider-notes" placeholder="任意メモ" />
         </div>
         <div id="rider-error" class="error-msg" style="display:none"></div>
-        <button class="btn btn-primary" id="rider-submit">ライダーを登録</button>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-secondary" id="rider-cancel">キャンセル</button>
+          <button class="btn btn-primary" id="rider-submit">登録する</button>
+        </div>
       </div>
     </div>
 
@@ -63,7 +68,7 @@ function render() {
     <div class="section">
       <div class="section-title">ライダー一覧 <span class="badge badge-info">${_allRiders.length}人</span></div>
       ${_allRiders.length === 0
-        ? '<p class="text-muted">ライダーがいません。上のフォームから登録してください。</p>'
+        ? '<p class="text-muted">ライダーがいません。「メンバー登録」ボタンから登録してください。</p>'
         : `<div class="table-wrap"><table>
             <thead><tr>
               <th>名前</th><th>メモ</th><th></th>
@@ -129,7 +134,17 @@ function render() {
 
 function bindEvents() {
   // ---- ライダー登録 ----
-  document.getElementById('rider-submit').addEventListener('click', async () => {
+  document.getElementById('rider-open-form')?.addEventListener('click', () => {
+    _isCreateFormOpen = true;
+    render();
+  });
+
+  document.getElementById('rider-cancel')?.addEventListener('click', () => {
+    _isCreateFormOpen = false;
+    render();
+  });
+
+  document.getElementById('rider-submit')?.addEventListener('click', async () => {
     const errEl = document.getElementById('rider-error');
     errEl.style.display = 'none';
     const name   = document.getElementById('rider-name').value.trim();
@@ -144,6 +159,7 @@ function bindEvents() {
     try {
       await createRider({ name, weight_kg: weight, ftp_w: ftp, height_cm: height ? parseInt(height) : undefined, notes: notes || undefined });
       ['rider-name','rider-weight','rider-ftp','rider-height','rider-notes'].forEach((id) => { document.getElementById(id).value = ''; });
+      _isCreateFormOpen = false;
       await refresh();
     } catch (e) {
       errEl.textContent = e.message ?? 'エラーが発生しました'; errEl.style.display = 'block';
