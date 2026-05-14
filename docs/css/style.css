@@ -374,13 +374,13 @@ select option { background: var(--color-surface2); }
 }
 .member-card-name { font-weight: 600; font-size: 0.95rem; }
 .member-card-meta { font-size: 0.78rem; color: var(--color-text-muted); margin-top: 2px; }
-.member-card-gear {
+.member-card-controls {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(180px, 260px);
   gap: 10px;
 }
 @media (max-width: 480px) {
-  .member-card-gear { grid-template-columns: 1fr; }
+  .member-card-controls { grid-template-columns: 1fr; }
 }
 
 /* ---- ロスターチップ ---- */

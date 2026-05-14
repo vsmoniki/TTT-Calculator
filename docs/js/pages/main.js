@@ -1,14 +1,12 @@
 // =============================================
-// メイン画面 — フル機能 TTTシミュレーター
-// ・ライダー選択・プル時間・機材設定
+// メイン画面 — チーム目標W/kg計算
+// ・目標W/kg帯から同一速度を逆算
+// ・体重/身長差から各ライダーの必要W/kgを表示
 // ・ドラッグ&ドロップ並び替え
-// ・Auto Order / Auto Optimize
-// ・URLステート復元
 // =============================================
-import { fetchRiders, fetchFrames, fetchWheels, fetchSettings } from '../api.js';
+import { fetchRiders, fetchSettings } from '../api.js';
 
 // ---- 物理定数 ----
-const G         = 9.81;
 const DEFAULT_SETTINGS = {
   draft_factor_2: 0.8,
   draft_factor_3: 0.75,
@@ -19,21 +17,9 @@ const DEFAULT_SETTINGS = {
   draft_factor_8: 0.75,
   rho: 1.225,
   road_cd: 0.63,
-  tt_cd: 0.55,
   cda_calibration_multiplier: 0.76,
-  equipment_reference_time_sec: 1668,
   default_height_m: 1.75,
-  default_frame_name: 'CADEX tri',
-  default_wheel_name: 'DT Swiss ARC 1100 DICUT 85/Disc',
-  equipment_preset: 'tri_dtswiss',
-  equipment_status_tri_dtswiss: 'enabled',
-  equipment_status_tron: 'enabled',
-  default_frame_flat_delta_sec: 0,
-  default_wheel_flat_delta_sec: 0,
 };
-const TRON_FRAME_CANDIDATES = ['Zwift Concept Z1 (Tron)', 'Tron'];
-const CADEX_FRAME_CANDIDATES = ['Cadex Tri', 'CADEX tri'];
-const DT85_WHEEL_CANDIDATES = ['DT Swiss ARC 1100 DICUT 85/Disc', 'DTSwiss ARC 1100 DICUT 85/Disc'];
 const TARGET_WKG_MIN = 3.0;
 const TARGET_WKG_MAX = 7.0;
 const TARGET_WKG_STEP = 0.1;
@@ -41,13 +27,11 @@ const TARGET_WKG_BAND = 0.5;
 const ROTATION_CYCLE_SEC = 120; // Auto Optimize のベース回転時間 (秒)
 
 let state = {
-  riders: [], frames: [], wheels: [],
-  members: [],        // [{ rider, frameId, wheelId, order, pull_sec }]
+  riders: [],
+  members: [],        // [{ rider, order, pull_sec }]
   targetWkgMin: 5.0,
   draftFactors: buildDraftFactors(DEFAULT_SETTINGS),
   settings: { ...DEFAULT_SETTINGS },
-  defaultFrameId: null,
-  defaultWheelId: null,
 };
 
 // ============================================================
@@ -55,9 +39,7 @@ let state = {
 // ============================================================
 
 function calcHeadPower(member, v) {
-  const frame = state.frames.find((f) => f.id === member.frameId);
-  const wheel = state.wheels.find((w) => w.id === member.wheelId);
-  const cda  = calcAdjustedCdA(member, frame, wheel);
+  const cda = calcAdjustedCdA(member);
   const fAero = 0.5 * state.settings.rho * cda * v * v;
   return fAero * v;
 }
@@ -67,31 +49,18 @@ function getRiderHeightM(member) {
   return (heightCm > 0 ? heightCm : state.settings.default_height_m * 100) / 100;
 }
 
-function isTtBike(frame) {
-  return String(frame?.bike_type ?? 'road').toLowerCase() === 'tt';
-}
-
-function calcFrontalArea(member, frame) {
+function calcFrontalArea(member) {
   const h = getRiderHeightM(member);
   const m = Number(member?.rider?.weight_kg ?? 0);
-  const coeff = isTtBike(frame) ? 0.0293 : 0.0276;
-  const offset = isTtBike(frame) ? 0.0604 : 0.1647;
-  return coeff * Math.pow(h, 0.725) * Math.pow(m, 0.425) + offset;
+  return 0.0276 * Math.pow(h, 0.725) * Math.pow(m, 0.425) + 0.1647;
 }
 
-function calcBaseCdA(member, frame) {
-  const cd = isTtBike(frame) ? state.settings.tt_cd : state.settings.road_cd;
-  return cd * calcFrontalArea(member, frame) * state.settings.cda_calibration_multiplier;
+function calcBaseCdA(member) {
+  return state.settings.road_cd * calcFrontalArea(member) * state.settings.cda_calibration_multiplier;
 }
 
-function calcEquipmentCdAMultiplier() {
-  return 1;
-}
-
-function calcAdjustedCdA(member, frame, wheel) {
-  const baseCdA = calcBaseCdA(member, frame);
-  const equipmentCdAMultiplier = calcEquipmentCdAMultiplier(frame, wheel);
-  return Math.max(0.15, baseCdA * equipmentCdAMultiplier);
+function calcAdjustedCdA(member) {
+  return Math.max(0.15, calcBaseCdA(member));
 }
 
 function buildDraftFactors(settings) {
@@ -252,7 +221,7 @@ function applyURLState(decoded) {
   state.members = decoded.m.map((entry) => {
     const rider = state.riders.find((r) => r.id === entry.id);
     if (!rider) return null;
-    return { rider, frameId: entry.f ?? null, wheelId: entry.w ?? null, order: entry.o, pull_sec: entry.p ?? 30 };
+    return { rider, order: entry.o, pull_sec: entry.p ?? 30 };
   }).filter(Boolean);
 }
 
@@ -290,70 +259,14 @@ function esc(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function normalizeName(name) {
-  return String(name ?? '').toLowerCase().replace(/[\s_-]/g, '');
-}
-
-function findDefaultGearId(items, candidates) {
-  for (const candidate of candidates) {
-    const exact = items.find((item) => item.name === candidate);
-    if (exact) return exact.id;
-  }
-  const normalizedCandidates = new Set(candidates.map(normalizeName));
-  const normalized = items.find((item) => normalizedCandidates.has(normalizeName(item.name)));
-  if (normalized) return normalized.id;
-  return items[0]?.id ?? null;
-}
-
-function findTronFrameId(frames) {
-  return findDefaultGearId(frames, TRON_FRAME_CANDIDATES);
-}
-
-function getSelectableEquipments() {
-  const cadexFrameId = findDefaultGearId(state.frames, CADEX_FRAME_CANDIDATES);
-  const dt85WheelId = findDefaultGearId(state.wheels, DT85_WHEEL_CANDIDATES);
-  const tronFrameId = findTronFrameId(state.frames);
-  const equipments = [];
-  if (cadexFrameId && dt85WheelId) {
-    equipments.push({
-      key: 'cadex_dt85',
-      label: 'Cadex Tri × DT Swiss ARC 1100 DICUT 85/Disc',
-      frameId: cadexFrameId,
-      wheelId: dt85WheelId,
-    });
-  }
-  if (tronFrameId) {
-    equipments.push({
-      key: 'tron',
-      label: 'Zwift Concept Z1 (Tron)',
-      frameId: tronFrameId,
-      wheelId: null,
-    });
-  }
-  return equipments;
-}
-
-function getInitialEquipmentSelection() {
-  const selectableEquipments = getSelectableEquipments();
-  const firstEquipment = selectableEquipments[0];
-  if (firstEquipment) {
-    return { frameId: firstEquipment.frameId, wheelId: firstEquipment.wheelId };
-  }
-  return { frameId: null, wheelId: null };
-}
-
 // ============================================================
 // エントリーポイント
 // ============================================================
 
 export async function renderMain(container) {
-  const [riders, frames, wheels, settings] = await Promise.all([fetchRiders(), fetchFrames(), fetchWheels(), fetchSettings()]);
+  const [riders, settings] = await Promise.all([fetchRiders(), fetchSettings()]);
   const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
-  const defaultFrameCandidates = [mergedSettings.default_frame_name, 'Cadex Tri', 'Canyon Aeroad 2021'];
-  const defaultWheelCandidates = [mergedSettings.default_wheel_name, 'DTSwiss ARC 1100 DICUT 85/Disc', 'DT Swiss ARC 62 DICUT'];
-  const defaultFrameId = findDefaultGearId(frames, defaultFrameCandidates);
-  const defaultWheelId = findDefaultGearId(wheels, defaultWheelCandidates);
-  state = { ...state, riders, frames, wheels, members: [], defaultFrameId, defaultWheelId, settings: mergedSettings, draftFactors: buildDraftFactors(mergedSettings) }; 
+  state = { ...state, riders, members: [], settings: mergedSettings, draftFactors: buildDraftFactors(mergedSettings) };
 
   // URLステート復元
   const hashMatch = location.hash.match(/[#&]state=([^&]*)/);
@@ -385,7 +298,7 @@ function render(container) {
           <div>
             <div class="text-muted text-sm">チーム目標パワー</div>
             <div class="target-wkg-value" id="m-target-wkg-display">${state.targetWkgMin.toFixed(1)}〜${targetWkgMax().toFixed(1)} wkg</div>
-            <p class="text-muted text-sm mt-8">0.5wkg幅の目安です。メンバーの体重差・身長差により、個人の必要W/kgが範囲外になっても問題ありません。</p>
+            <p class="text-muted text-sm mt-8">0.5wkg幅の目安です。メンバーの体重差・身長差により、個人の必要W/kgが範囲外になっても問題ありません。機材差は考慮しません。</p>
           </div>
           <div class="target-wkg-inputs">
             <div class="form-group">
@@ -456,8 +369,6 @@ function render(container) {
 // ============================================================
 
 function renderMemberCard(m, idx, total) {
-  const selectableEquipments = getSelectableEquipments();
-  const selectedEquipment = selectableEquipments.find((eq) => eq.frameId === m.frameId && eq.wheelId === (m.wheelId ?? null));
   return `
     <div class="member-card" id="m-mcard-${m.rider.id}" draggable="true" data-rider-id="${m.rider.id}"
          style="cursor:grab">
@@ -475,13 +386,7 @@ function renderMemberCard(m, idx, total) {
           <button class="btn btn-danger btn-sm" onclick="mainRemoveMember(${m.rider.id})">外す</button>
         </div>
       </div>
-      <div class="member-card-gear">
-        <div class="form-group" style="margin:0">
-          <label>機材</label>
-          <select id="m-equipment-${m.rider.id}" onchange="mainUpdateGear(${m.rider.id})">
-            ${selectableEquipments.map((eq)=>`<option value="${eq.key}" ${eq.key===selectedEquipment?.key?'selected':''}>${esc(eq.label)}</option>`).join('')}
-          </select>
-        </div>
+      <div class="member-card-controls">
         <div class="form-group" style="margin:0">
           <label>プル時間 (秒)</label>
           <input type="number" id="m-pull-${m.rider.id}" value="${m.pull_sec}" min="5" max="300" step="5"
@@ -554,7 +459,7 @@ function renderResults() {
         </table>
       </div>
       <p class="text-muted text-sm mt-8">
-        ※ 「必要W/kg」は先頭で同じ推定速度になるための値です。体重・身長・機材差により、個人ごとのW/kgはチーム目標範囲から外れることがあります。<br>
+        ※ 「必要W/kg」は先頭で同じ推定速度になるための値です。体重・身長差により、個人ごとのW/kgはチーム目標範囲から外れることがあります。機材差は考慮していません。<br>
         ※ 後続W/kg/平均W/kgはドラフトとプル時間を加味した参考値です。
       </p>
 
@@ -599,10 +504,8 @@ function bindEvents(container) {
       if (state.members.length >= 8) return;
       const rider = state.riders.find((r) => r.id === riderId);
       if (!rider) return;
-      const initialEquipment = getInitialEquipmentSelection();
       state.members.push({
-        rider, frameId: initialEquipment.frameId, wheelId: initialEquipment.wheelId,
-        order: state.members.length + 1, pull_sec: 30,
+        rider, order: state.members.length + 1, pull_sec: 30,
       });
     }
     render(container);
@@ -630,17 +533,6 @@ function bindEvents(container) {
     render(container);
   };
 
-  window.mainUpdateGear = (riderId) => {
-    const equipmentKey = document.getElementById(`m-equipment-${riderId}`)?.value;
-    const selectedEquipment = getSelectableEquipments().find((eq) => eq.key === equipmentKey);
-    const member = state.members.find((m) => m.rider.id === riderId);
-    if (member) {
-      member.frameId = selectedEquipment?.frameId ?? null;
-      member.wheelId = selectedEquipment?.wheelId ?? null;
-      const containerEl = document.getElementById('content');
-      if (containerEl) render(containerEl); else refreshResults();
-    }
-  };
 
   window.mainUpdatePull = (riderId, val) => {
     const member = state.members.find((m) => m.rider.id === riderId);
