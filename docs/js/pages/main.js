@@ -34,12 +34,16 @@ const DEFAULT_SETTINGS = {
 const TRON_FRAME_CANDIDATES = ['Zwift Concept Z1 (Tron)', 'Tron'];
 const CADEX_FRAME_CANDIDATES = ['Cadex Tri', 'CADEX tri'];
 const DT85_WHEEL_CANDIDATES = ['DT Swiss ARC 1100 DICUT 85/Disc', 'DTSwiss ARC 1100 DICUT 85/Disc'];
+const TARGET_WKG_MIN = 3.0;
+const TARGET_WKG_MAX = 7.0;
+const TARGET_WKG_STEP = 0.1;
+const TARGET_WKG_BAND = 0.5;
 const ROTATION_CYCLE_SEC = 120; // Auto Optimize のベース回転時間 (秒)
 
 let state = {
   riders: [], frames: [], wheels: [],
   members: [],        // [{ rider, frameId, wheelId, order, pull_sec }]
-  speed: 44,
+  targetWkgMin: 5.0,
   draftFactors: buildDraftFactors(DEFAULT_SETTINGS),
   settings: { ...DEFAULT_SETTINGS },
   defaultFrameId: null,
@@ -122,7 +126,7 @@ function calcResults() {
   const sorted = sortedMembers();
   if (sorted.length === 0) return [];
   const n     = sorted.length;
-  const v     = state.speed / 3.6;
+  const v     = calcTargetSpeedKph(sorted) / 3.6;
   const dfAvg = draftFactorAvg(n);
   const totalPull = sorted.reduce((s, m) => s + m.pull_sec, 0) || 1;
 
@@ -134,7 +138,10 @@ function calcResults() {
     const pullRatio = m.pull_sec / totalPull;
     const avgPower  = headW * (dfAvg + (1 - dfAvg) * pullRatio);
     const avgPct    = Math.round((avgPower / m.rider.ftp_w) * 1000) / 10;
-    return { m, headW: Math.round(headW), draftW: Math.round(draftW), headPct, draftPct, pullRatio, avgPct };
+    const headWkg = round1(headW / m.rider.weight_kg);
+    const draftWkg = round1(draftW / m.rider.weight_kg);
+    const avgWkg = round1(avgPower / m.rider.weight_kg);
+    return { m, headW: Math.round(headW), draftW: Math.round(draftW), headPct, draftPct, pullRatio, avgPct, headWkg, draftWkg, avgWkg };
   });
 
   const bottleneck = rows.reduce((max, r) => (r.avgPct > max.avgPct ? r : max), rows[0]);
@@ -154,7 +161,7 @@ function autoOrder() {
 function autoOptimizeFixed() {
   const sorted = sortedMembers();
   if (sorted.length === 0) return;
-  const v = state.speed / 3.6;
+  const v = calcTargetSpeedKph(sorted) / 3.6;
   const n = sorted.length;
   const dfAvg = draftFactorAvg(n);
   const avgRatioTarget = rowsAverage(sorted.map((m) => m.rider.ftp_w / calcHeadPower(m, v)));
@@ -169,6 +176,59 @@ function autoOptimizeFixed() {
   sorted.forEach((m, i) => {
     m.pull_sec = Math.max(10, Math.round((ratios[i] / sumR) * ROTATION_CYCLE_SEC));
   });
+}
+
+function round1(value) {
+  return Math.round(value * 10) / 10;
+}
+
+function clampTargetWkg(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return state.targetWkgMin;
+  return round1(Math.min(TARGET_WKG_MAX, Math.max(TARGET_WKG_MIN, numericValue)));
+}
+
+function targetWkgMax() {
+  return round1(state.targetWkgMin + TARGET_WKG_BAND);
+}
+
+function targetWkgMid() {
+  return round1(state.targetWkgMin + TARGET_WKG_BAND / 2);
+}
+
+function averageHeadWkgAtSpeed(members, speedKph) {
+  if (members.length === 0) return 0;
+  const v = speedKph / 3.6;
+  return rowsAverage(members.map((m) => calcHeadPower(m, v) / Number(m.rider.weight_kg)));
+}
+
+function calcTargetSpeedKph(members = sortedMembers()) {
+  if (members.length === 0) return 0;
+  const target = targetWkgMid();
+  let low = 1;
+  let high = 80;
+  for (let i = 0; i < 36; i += 1) {
+    const mid = (low + high) / 2;
+    if (averageHeadWkgAtSpeed(members, mid) < target) low = mid;
+    else high = mid;
+  }
+  return round1((low + high) / 2);
+}
+
+function wkgBandClass(value) {
+  if (value < state.targetWkgMin) return 'wkg-under';
+  if (value > targetWkgMax()) return 'wkg-over';
+  return 'wkg-in';
+}
+
+function wkgBandRowClass(value) {
+  return `wkg-row-${wkgBandClass(value).replace('wkg-', '')}`;
+}
+
+function wkgBandLabel(value) {
+  if (value < state.targetWkgMin) return '目安より低め';
+  if (value > targetWkgMax()) return '目安より高め';
+  return '目安内';
 }
 
 function rowsAverage(values) {
@@ -188,7 +248,7 @@ function decodeState(hash) {
 
 function applyURLState(decoded) {
   if (!decoded?.m) return;
-  state.speed           = decoded.spd ?? state.speed;
+  state.targetWkgMin    = clampTargetWkg(decoded.wkg ?? state.targetWkgMin);
   state.members = decoded.m.map((entry) => {
     const rider = state.riders.find((r) => r.id === entry.id);
     if (!rider) return null;
@@ -313,24 +373,34 @@ function render(container) {
 
   container.innerHTML = `
     <div class="page-header">
-      <h2 class="page-title">シミュレーション</h2>
-      <span class="text-muted text-sm">ライダーを選んで速度を設定するだけで必要パワーを即確認</span>
+      <h2 class="page-title">チーム目標W/kg計算</h2>
+      <span class="text-muted text-sm">目標W/kg帯とメンバー体格から、同じ速度になる各ライダーの必要W/kgを確認</span>
     </div>
 
     <!-- 設定 -->
     <div class="section">
-      <div class="section-title">設定</div>
+      <div class="section-title">チーム目標パワー目安</div>
       <div class="card">
-        <div class="form-row">
-          <div class="form-group">
-            <label>目標速度 (kph)</label>
-            <input type="number" id="m-speed" value="${state.speed}" step="0.5" min="1" max="100" />
+        <div class="target-wkg-panel">
+          <div>
+            <div class="text-muted text-sm">チーム目標パワー</div>
+            <div class="target-wkg-value" id="m-target-wkg-display">${state.targetWkgMin.toFixed(1)}〜${targetWkgMax().toFixed(1)} wkg</div>
+            <p class="text-muted text-sm mt-8">0.5wkg幅の目安です。メンバーの体重差・身長差により、個人の必要W/kgが範囲外になっても問題ありません。</p>
+          </div>
+          <div class="target-wkg-inputs">
+            <div class="form-group">
+              <label>目安の下限 (wkg)</label>
+              <input type="range" id="m-target-wkg-range" value="${state.targetWkgMin.toFixed(1)}" step="${TARGET_WKG_STEP}" min="${TARGET_WKG_MIN}" max="${TARGET_WKG_MAX}" />
+            </div>
+            <div class="form-group">
+              <label>数値入力 (3.0〜7.0 / 0.1刻み)</label>
+              <input type="number" id="m-target-wkg" value="${state.targetWkgMin.toFixed(1)}" step="${TARGET_WKG_STEP}" min="${TARGET_WKG_MIN}" max="${TARGET_WKG_MAX}" />
+            </div>
           </div>
         </div>
-        <!-- 自動化ボタン -->
         <div class="flex gap-8 wrap mt-12">
           <button class="btn btn-secondary btn-sm" id="m-auto-order" title="FTP降順で走順を並び替え">↕ Auto Order</button>
-          <button class="btn btn-secondary btn-sm" id="m-opt-fixed"  title="現在の速度でプル時間を最適化">🔧 最適化（速度固定）</button>
+          <button class="btn btn-secondary btn-sm" id="m-opt-fixed" title="目安W/kgから求めた速度でプル時間を最適化">🔧 プル時間最適化</button>
         </div>
       </div>
     </div>
@@ -371,7 +441,7 @@ function render(container) {
     </div>
     ` : ''}
 
-    <!-- 必要パワー計算結果 -->
+    <!-- W/kg計算結果 -->
     <div id="m-results">
       ${memberCount > 0 ? renderResults() : '<p class="text-muted">メンバーを選択するとパワー計算が表示されます。</p>'}
     </div>
@@ -430,23 +500,28 @@ function renderResults() {
   const rows = calcResults();
   if (rows.length === 0) return '';
 
+  const targetSpeedKph = calcTargetSpeedKph();
+  const averageHeadWkg = round1(rowsAverage(rows.map((r) => r.headWkg)));
+  const strongest = rows.reduce((max, r) => (r.headWkg > max.headWkg ? r : max), rows[0]);
+
   return `
     <div class="section">
-      <div class="section-title">必要パワー — ${state.speed} kph</div>
+      <div class="section-title">同一速度に必要なW/kg — 目安 ${state.targetWkgMin.toFixed(1)}〜${targetWkgMax().toFixed(1)} wkg</div>
 
       <!-- サマリー -->
-      <div class="card mb-8" style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">
+      <div class="card mb-8 result-summary-grid">
         <div>
-          <div class="text-muted text-sm">ボトルネック</div>
-          <div class="card-title" style="color:var(--color-primary);margin-bottom:0">
-            ${esc(rows.find(r=>r.isBottleneck)?.m.rider.name??'')}
-            <span class="tag-bottleneck">BOTTLENECK</span>
-          </div>
+          <div class="text-muted text-sm">推定同一速度</div>
+          <div class="card-title" style="color:var(--color-primary);margin-bottom:0">${targetSpeedKph} kph</div>
         </div>
         <div>
-          <div class="text-muted text-sm">最大先頭 FTP%</div>
-          <div class="card-title ${ftpClass(Math.max(...rows.map(r=>r.headPct)))}" style="margin-bottom:0">
-            ${Math.max(...rows.map(r=>r.headPct))}%
+          <div class="text-muted text-sm">平均 先頭W/kg</div>
+          <div class="card-title ${wkgBandClass(averageHeadWkg)}" style="margin-bottom:0">${averageHeadWkg.toFixed(1)} wkg</div>
+        </div>
+        <div>
+          <div class="text-muted text-sm">最も高い必要W/kg</div>
+          <div class="card-title ${wkgBandClass(strongest.headWkg)}" style="margin-bottom:0">
+            ${esc(strongest.m.rider.name)} ${strongest.headWkg.toFixed(1)} wkg
           </div>
         </div>
       </div>
@@ -456,33 +531,31 @@ function renderResults() {
         <table>
           <thead>
             <tr>
-              <th>順</th><th>ライダー</th><th>プル(秒)</th>
-              <th>先頭 W</th><th>後続 W</th>
-              <th>先頭 FTP%</th><th>後続 FTP%</th><th>平均 FTP%</th>
+              <th>順</th><th>ライダー</th><th>体重</th>
+              <th>必要W/kg</th><th>必要W</th><th>目安</th>
+              <th>後続W/kg</th><th>平均W/kg</th><th>FTP%</th>
             </tr>
           </thead>
           <tbody>
             ${rows.map((r) => `
-              <tr class="${r.isBottleneck?'bottleneck':''}">
+              <tr class="${wkgBandRowClass(r.headWkg)}">
                 <td>${r.m.order}</td>
-                <td>
-                  <strong>${esc(r.m.rider.name)}</strong>
-                  ${r.isBottleneck?'<span class="tag-bottleneck">BOTTLENECK</span>':''}
-                </td>
-                <td>${r.m.pull_sec}s <span class="text-muted text-sm">(${Math.round(r.pullRatio*100)}%)</span></td>
+                <td><strong>${esc(r.m.rider.name)}</strong></td>
+                <td>${r.m.rider.weight_kg} kg</td>
+                <td><strong class="${wkgBandClass(r.headWkg)}">${r.headWkg.toFixed(1)} wkg</strong></td>
                 <td>${r.headW} W</td>
-                <td>${r.draftW} W</td>
+                <td><span class="wkg-status ${wkgBandClass(r.headWkg)}">${wkgBandLabel(r.headWkg)}</span></td>
+                <td>${r.draftWkg.toFixed(1)} wkg</td>
+                <td>${r.avgWkg.toFixed(1)} wkg</td>
                 <td><span class="${ftpClass(r.headPct)}">${r.headPct}%</span></td>
-                <td><span class="${ftpClass(r.draftPct)}">${r.draftPct}%</span></td>
-                <td><span class="${ftpClass(r.avgPct)}">${r.avgPct}%</span></td>
               </tr>
             `).join('')}
           </tbody>
         </table>
       </div>
       <p class="text-muted text-sm mt-8">
-        ※ 先頭W = 目標速度を単独維持するための推定パワー。後続W = ドラフト恩恵を加味した推定パワー。<br>
-        ※ 平均FTP% = ローテーション中の平均強度。95%以上は<span class="pct-warn">橙</span>/<span class="pct-danger">赤</span>で警告。
+        ※ 「必要W/kg」は先頭で同じ推定速度になるための値です。体重・身長・機材差により、個人ごとのW/kgはチーム目標範囲から外れることがあります。<br>
+        ※ 後続W/kg/平均W/kgはドラフトとプル時間を加味した参考値です。
       </p>
 
     </div>
@@ -495,10 +568,18 @@ function renderResults() {
 
 function bindEvents(container) {
   // 設定変更
-  document.getElementById('m-speed')?.addEventListener('input', (e) => {
-    const v = parseFloat(e.target.value);
-    if (!isNaN(v) && v > 0) { state.speed = v; refreshResults(); }
-  });
+  const updateTargetWkg = (value) => {
+    state.targetWkgMin = clampTargetWkg(value);
+    const range = document.getElementById('m-target-wkg-range');
+    const number = document.getElementById('m-target-wkg');
+    if (range) range.value = state.targetWkgMin.toFixed(1);
+    if (number) number.value = state.targetWkgMin.toFixed(1);
+    const display = document.getElementById('m-target-wkg-display');
+    if (display) display.textContent = `${state.targetWkgMin.toFixed(1)}〜${targetWkgMax().toFixed(1)} wkg`;
+    refreshResults();
+  };
+  document.getElementById('m-target-wkg-range')?.addEventListener('input', (e) => updateTargetWkg(e.target.value));
+  document.getElementById('m-target-wkg')?.addEventListener('input', (e) => updateTargetWkg(e.target.value));
 
   // 自動化ボタン
   document.getElementById('m-auto-order')?.addEventListener('click', () => {

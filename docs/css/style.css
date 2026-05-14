@@ -492,3 +492,56 @@ select option { background: var(--color-surface2); }
 .schedule-link:hover {
   text-decoration: underline;
 }
+
+/* ---- チーム目標W/kg ---- */
+.target-wkg-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(260px, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+.target-wkg-value {
+  color: var(--color-primary);
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+.target-wkg-inputs {
+  display: grid;
+  gap: 8px;
+}
+.target-wkg-inputs .form-group {
+  margin-bottom: 0;
+}
+input[type="range"] {
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+.result-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.wkg-in { color: var(--color-success); font-weight: 700; }
+.wkg-under { color: #64a0ff; font-weight: 700; }
+.wkg-over { color: var(--color-warn); font-weight: 700; }
+tbody tr.wkg-row-in { background: rgba(76,175,125,0.06); }
+tbody tr.wkg-row-under { background: rgba(100,160,255,0.06); }
+tbody tr.wkg-row-over { background: rgba(245,166,35,0.08); }
+.wkg-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  padding: 2px 8px;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .target-wkg-panel,
+  .result-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
