@@ -82,12 +82,12 @@ npm run db:seed:local
 
 ### 4. Cloudflare Secret の設定（必須）
 
-`SECRET_PASSWORD` を Cloudflare の Secret として設定してください。今回の想定値は `TMR` です。
+`SECRET_PASSWORD` を Cloudflare の Secret として設定してください。値はリポジトリに書かず、所有者だけが分かる安全な場所で管理してください。
 
 ```bash
 # worker/ ディレクトリで実行
 npx wrangler secret put SECRET_PASSWORD
-# プロンプトで TMR を入力
+# プロンプトでパスワードを入力
 ```
 
 ローカル開発時も `wrangler dev` で同じ Secret が利用されます。
@@ -175,7 +175,7 @@ npx wrangler d1 create ttt-calculator
 
 # Secret 設定（必須）
 npx wrangler secret put SECRET_PASSWORD
-# プロンプトで TMR を入力
+# プロンプトでパスワードを入力
 
 # 本番マイグレーション
 npm run db:migrate:remote
