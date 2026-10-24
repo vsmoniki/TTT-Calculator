@@ -5,50 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Zwift TTT Calculator</title>
   <link rel="stylesheet" href="css/style.css" />
-  <!-- Chart.js for route profile visualization -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <!-- html2canvas for image export -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
-  <main id="auth-gate" class="auth-gate" role="main" hidden>
-    <form id="auth-form" class="auth-form" aria-label="ログインフォーム">
-      <h1 class="site-title">⚡ TTT Calculator</h1>
-      <p class="site-subtitle">パスワードを入力して利用を開始してください。</p>
-      <div class="form-group">
-        <input
-          id="password-input"
-          name="password"
-          type="text"
-          class="password-like-input"
-          autocomplete="off"
-          autocapitalize="off"
-          autocorrect="off"
-          spellcheck="false"
-          required
-        />
-      </div>
-      <button type="submit" class="btn btn-primary">ログイン</button>
-      <p id="auth-error" class="error-msg auth-error" hidden>パスワードが正しくありません。</p>
-    </form>
-  </main>
-
-  <div id="app-shell" hidden>
+  <div id="app-shell">
     <header class="site-header">
       <div class="header-inner">
         <div class="header-title-group">
           <h1 class="site-title">⚡ TTT Calculator</h1>
           <p class="site-subtitle">Zwift Team Time Trial Simulator</p>
         </div>
-        <button id="logout-button" class="btn btn-secondary btn-sm header-logout-btn" type="button">ログアウト</button>
       </div>
     </header>
 
     <nav class="tab-nav" role="navigation" aria-label="メインナビゲーション">
-      <a class="tab-link" href="#/main"    data-page="main">シミュレーション</a>
-      <a class="tab-link" href="#/teams"   data-page="teams">メンバー</a>
-      <a class="tab-link" href="#/schedule" data-page="schedule">スケジュール</a>
-      <a class="tab-link" href="#/admin" data-page="admin">管理</a>
+      <a class="tab-link" href="#/simulator" data-page="simulator">シミュレーター</a>
+      <a class="tab-link" href="#/riders" data-page="riders">ライダー管理</a>
+      <a class="tab-link" href="#/courses" data-page="courses">コース一覧</a>
+      <a class="tab-link" href="#/wkg" data-page="wkg">目標W/kg</a>
     </nav>
 
     <main id="content" class="content" role="main">
@@ -56,34 +29,9 @@
     </main>
 
     <footer class="site-footer">
-      <p id="last-deploy-time">最終更新日時: 読み込み中...</p>
+      <p>Zwift TTT Calculator — 全てブラウザ内で計算します（サーバー送信なし）。ライダー登録はこのブラウザに保存されます。</p>
     </footer>
   </div>
-
-  <script>
-    (() => {
-      const target = document.getElementById('last-deploy-time');
-      if (!target) return;
-
-      const lastModified = new Date(document.lastModified);
-      if (Number.isNaN(lastModified.getTime())) {
-        target.textContent = '最終更新日時: 取得できませんでした';
-        return;
-      }
-
-      const formatted = new Intl.DateTimeFormat('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-      }).format(lastModified);
-
-      target.textContent = `最終更新日時: ${formatted}`;
-    })();
-  </script>
 
   <script type="module" src="js/app.js"></script>
 </body>

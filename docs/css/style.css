@@ -545,3 +545,13 @@ tbody tr.wkg-row-over { background: rgba(245,166,35,0.08); }
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- 全クライアント版シミュレーター（追加分） ---- */
+.big-time {
+  color: var(--color-primary);
+  font-size: clamp(2.4rem, 6vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.sparkline { display: block; }
